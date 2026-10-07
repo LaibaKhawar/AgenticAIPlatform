@@ -228,6 +228,36 @@ async def health() -> dict[str, Any]:
     return {"status": "ok", "service": "cogniflow-orchestrator", "database": "connected" if db_pool else "demo-fallback", "active_runs": sum(r.status in {"running", "awaiting_approval"} for r in runs.values()), "agents": 5}
 
 
+@app.get("/api/runs")
+async def list_runs() -> list[dict[str, Any]]:
+    saved = await db.list_runs(db_pool)
+    if saved:
+        return saved
+    return [{"id": run.id, "objective": run.objective, "status": run.status, "progress": run.progress, "current_node": run.current_node, "approval_mode": run.approval_mode, "created_at": run.created_at, "updated_at": run.updated_at} for run in sorted(runs.values(), key=lambda item: item.created_at, reverse=True)]
+
+
+@app.get("/api/agents")
+async def list_agents() -> list[dict[str, Any]]:
+    return [
+        {"id": "planner", "name": "Planner", "role": "Turns objectives into dependency-aware execution plans.", "status": "ready", "accent": "lemon", "tools": ["Structured outputs", "Task DAG"]},
+        {"id": "sql-agent", "name": "Data intelligence", "role": "Reads safe, parameterized customer and product metrics from PostgreSQL.", "status": "ready", "accent": "sea", "tools": ["PostgreSQL", "Churn signals"]},
+        {"id": "research-agent", "name": "Evidence retrieval", "role": "Finds relevant qualitative context across customer documents and support threads.", "status": "ready", "accent": "blue", "tools": ["pgvector", "Semantic search"]},
+        {"id": "investigator", "name": "Investigator", "role": "Connects signals into account-level explanations and actions.", "status": "ready", "accent": "lemon", "tools": ["Parallel fan-out", "Risk ranking"]},
+        {"id": "verifier", "name": "Verifier", "role": "Checks claims against evidence and rejects unsupported conclusions.", "status": "ready", "accent": "sea", "tools": ["Claim checking", "Citations"]},
+    ]
+
+
+@app.get("/api/sources")
+async def list_sources() -> list[dict[str, Any]]:
+    snapshot = await db.account_snapshot(db_pool)
+    return [
+        {"id": "postgres", "name": "PostgreSQL warehouse", "type": "Structured data", "status": "connected" if db_pool else "demo", "detail": f"{snapshot['accounts']:,} customer accounts · usage · contracts", "icon": "▦"},
+        {"id": "pgvector", "name": "Customer evidence index", "type": "Semantic search", "status": "connected" if db_pool else "demo", "detail": f"{snapshot['evidence_chunks']:,} documents ready for retrieval", "icon": "⌁"},
+        {"id": "apis", "name": "External research APIs", "type": "Optional connector", "status": "available", "detail": "Connect product, billing, and market context APIs", "icon": "↗"},
+        {"id": "neo4j", "name": "Relationship graph", "type": "Optional connector", "status": "not connected", "detail": "Map customer, product, and stakeholder relationships", "icon": "◌"},
+    ]
+
+
 @app.post("/api/runs", response_model=RunState, status_code=202)
 async def create_run(payload: RunRequest) -> RunState:
     run = RunState(id=f"run_{uuid.uuid4().hex[:10]}", objective=payload.objective, approval_mode=payload.approval_mode)

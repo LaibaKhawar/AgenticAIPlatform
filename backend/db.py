@@ -287,3 +287,11 @@ async def account_snapshot(pool: asyncpg.Pool | None) -> dict[str, int]:
         high_risk = await conn.fetchval("SELECT COUNT(*) FROM customer_accounts WHERE risk_score >= 0.70")
         chunks = await conn.fetchval("SELECT COUNT(*) FROM customer_documents")
         return {"accounts": accounts, "high_risk": high_risk, "evidence_chunks": chunks}
+
+
+async def list_runs(pool: asyncpg.Pool | None, limit: int = 40) -> list[dict[str, Any]]:
+    if not pool:
+        return []
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT id, objective, status, progress, current_node, approval_mode, created_at, updated_at FROM runs ORDER BY created_at DESC LIMIT $1", limit)
+        return [{"id": row["id"], "objective": row["objective"], "status": row["status"], "progress": row["progress"], "current_node": row["current_node"], "approval_mode": row["approval_mode"], "created_at": row["created_at"].isoformat(), "updated_at": row["updated_at"].isoformat()} for row in rows]
