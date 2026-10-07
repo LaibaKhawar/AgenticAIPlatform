@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Atlas · Agent operations</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><div class="brand-mark">✦</div><div><strong>atlas</strong><span>agent operations</span></div></div>
+      <div class="workspace"><span class="eyebrow">WORKSPACE</span><div class="workspace-row"><div class="workspace-icon">N</div><span>Northstar / Prod</span><span class="chevron">⌄</span></div></div>
+      <nav><a class="nav-item active" href="#run"><span>◈</span> New run <kbd>⌘ K</kbd></a><a class="nav-item" href="#runs"><span>◷</span> Run history <em>12</em></a><a class="nav-item" href="#agents"><span>✣</span> Agent registry</a><a class="nav-item" href="#integrations"><span>⊞</span> Integrations</a></nav>
+      <div class="sidebar-bottom"><div class="system-status"><span class="pulse"></span><div><strong>All systems operational</strong><small>Last check 14 sec ago</small></div></div><div class="profile"><div class="avatar">LM</div><div><strong>Laiba Mughal</strong><small>Administrator</small></div><span>•••</span></div></div>
+    </aside>
+    <main class="main">
+      <header class="topbar"><div><span class="breadcrumb">Workspace / <strong>New run</strong></span><h1>Agent command center</h1></div><div class="top-actions"><button class="icon-button">⌕</button><button class="icon-button">◌<span class="notification-dot"></span></button><div class="date">OCT 07, 2026 <span>14:32 PKT</span></div></div></header>
+      <section class="content" id="run">
+        <div class="hero-copy"><div><span class="eyebrow accent">ORCHESTRATION CONSOLE</span><h2>What should Atlas<br><i>figure out?</i></h2></div><p>Give your team’s most complex questions to a coordinated system of specialist agents. Every claim is traced, verified, and ready for review.</p></div>
+        <div class="composer-card"><div class="composer-top"><span class="status-dot"></span><span>OBJECTIVE</span><span class="draft">Draft saved · just now</span></div><textarea id="objective" placeholder="e.g. Analyze our customer accounts, identify churn risks, investigate each one, and produce an evidence-backed report.">Analyze our customer accounts, identify churn risks, investigate each one, and produce an evidence-backed report.</textarea><div class="composer-footer"><div class="capabilities"><span>↯ PostgreSQL</span><span>⌁ Vector search</span><span>⌁ External APIs</span><span>⌁ Verified output</span></div><div class="run-controls"><label><input type="checkbox" id="approval" checked> Human approval</label><button class="run-button" id="run-button">Start run <span>↗</span></button></div></div></div>
+        <div class="section-heading"><div><span class="eyebrow">LIVE WORKFLOW</span><h3 id="run-title">Ready when you are</h3></div><div class="run-meta" id="run-meta"><span class="live-indicator"></span> No active run</div></div>
+        <div class="workflow-grid" id="workflow-grid"><div class="workflow-card placeholder"><div class="placeholder-icon">✦</div><strong>Your execution graph will appear here</strong><span>Start an objective to watch the planner coordinate your agents in real time.</span></div></div>
+        <div class="lower-grid"><section class="panel activity-panel"><div class="panel-heading"><div><span class="eyebrow">TRACE STREAM</span><h3>Activity</h3></div><span class="trace-id" id="trace-id">—</span></div><div class="activity-list" id="activity-list"><div class="empty-state">No events yet. Your run trace will stream here.</div></div></section><section class="panel evidence-panel"><div class="panel-heading"><div><span class="eyebrow">SOURCE OF TRUTH</span><h3>Evidence preview</h3></div><span class="verified-badge">✓ VERIFIED</span></div><div id="evidence-list"><div class="empty-state">Evidence will be attached when the verifier finishes.</div></div></section></div>
+      </section>
+    </main>
+  </div>
+  <div class="toast" id="toast"></div>
+  <style>.approval-banner{margin:0 0 17px;padding:14px 17px;background:#fff9ef;border:1px solid #f1d6ad;border-radius:9px;display:flex;align-items:center;gap:12px}.approval-banner>span{font-size:20px;color:#c8802d}.approval-banner div{flex:1}.approval-banner strong,.approval-banner small{display:block}.approval-banner strong{font-size:11px}.approval-banner small{font-size:10px;color:#8b8171;margin-top:3px}.approval-banner button{border:0;background:#d98736;color:#fff;border-radius:5px;padding:9px 12px;font:600 10px var(--sans);cursor:pointer}</style>
+  <script src="/static/app.js"></script>
+</body>
+</html>

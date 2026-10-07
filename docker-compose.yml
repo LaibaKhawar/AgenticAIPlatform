@@ -1,0 +1,7 @@
+services:
+  atlas:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      ATLAS_ENV: demo
