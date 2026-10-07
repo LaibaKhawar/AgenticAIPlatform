@@ -71,9 +71,14 @@ class ApprovalRequest(BaseModel):
     note: str = ""
 
 
+class SourceAction(BaseModel):
+    action: Literal["connect", "disconnect"]
+
+
 runs: dict[str, RunState] = {}
 approval_events: dict[str, asyncio.Event] = {}
 db_pool = None
+source_overrides: dict[str, str] = {}
 
 
 @asynccontextmanager
@@ -250,12 +255,31 @@ async def list_agents() -> list[dict[str, Any]]:
 @app.get("/api/sources")
 async def list_sources() -> list[dict[str, Any]]:
     snapshot = await db.account_snapshot(db_pool)
+    saved = await db.list_sources(db_pool)
+    if saved:
+        for source in saved:
+            if source["id"] in source_overrides:
+                source["status"] = source_overrides[source["id"]]
+        saved[0]["detail"] = f"{snapshot['accounts']:,} customer accounts · usage · contracts"
+        saved[1]["detail"] = f"{snapshot['evidence_chunks']:,} documents ready for retrieval"
+        return saved
     return [
-        {"id": "postgres", "name": "PostgreSQL warehouse", "type": "Structured data", "status": "connected" if db_pool else "demo", "detail": f"{snapshot['accounts']:,} customer accounts · usage · contracts", "icon": "▦"},
-        {"id": "pgvector", "name": "Customer evidence index", "type": "Semantic search", "status": "connected" if db_pool else "demo", "detail": f"{snapshot['evidence_chunks']:,} documents ready for retrieval", "icon": "⌁"},
-        {"id": "apis", "name": "External research APIs", "type": "Optional connector", "status": "available", "detail": "Connect product, billing, and market context APIs", "icon": "↗"},
-        {"id": "neo4j", "name": "Relationship graph", "type": "Optional connector", "status": "not connected", "detail": "Map customer, product, and stakeholder relationships", "icon": "◌"},
+        {"id": "postgres", "name": "PostgreSQL warehouse", "type": "Structured data", "status": source_overrides.get("postgres", "demo"), "detail": f"{snapshot['accounts']:,} customer accounts · usage · contracts", "icon": "▦"},
+        {"id": "pgvector", "name": "Customer evidence index", "type": "Semantic search", "status": source_overrides.get("pgvector", "demo"), "detail": f"{snapshot['evidence_chunks']:,} documents ready for retrieval", "icon": "⌁"},
+        {"id": "apis", "name": "External research APIs", "type": "Optional connector", "status": source_overrides.get("apis", "available"), "detail": "Connect product, billing, and market context APIs", "icon": "↗"},
+        {"id": "neo4j", "name": "Relationship graph", "type": "Optional connector", "status": source_overrides.get("neo4j", "not connected"), "detail": "Map customer, product, and stakeholder relationships", "icon": "◌"},
     ]
+
+
+@app.post("/api/sources/{source_id}/connection")
+async def update_source_connection(source_id: str, payload: SourceAction) -> dict[str, Any]:
+    if source_id not in {"postgres", "pgvector", "apis", "neo4j"}:
+        raise HTTPException(404, "Source not found")
+    status = "connected" if payload.action == "connect" else "not connected"
+    source_overrides[source_id] = status
+    if db_pool:
+        await db.update_source(db_pool, source_id, status)
+    return {"id": source_id, "status": status, "message": f"{source_id} {status}"}
 
 
 @app.post("/api/runs", response_model=RunState, status_code=202)
@@ -292,6 +316,31 @@ async def approve_run(run_id: str, payload: ApprovalRequest) -> RunState:
     else:
         add_event(run, "approved", payload.note or "Action approved by operator.", "policy-gate")
     approval_events[run_id].set()
+    return run
+
+
+@app.post("/api/runs/{run_id}/retry", response_model=RunState, status_code=202)
+async def retry_run(run_id: str) -> RunState:
+    run = runs.get(run_id)
+    if not run:
+        saved = await db.load_run(db_pool, run_id)
+        if saved:
+            run = RunState.model_validate(saved)
+            runs[run_id] = run
+    if not run:
+        raise HTTPException(404, "Run not found")
+    if run.status not in {"failed", "rejected"}:
+        raise HTTPException(409, "Only failed or rejected runs can be retried")
+    run.status = "queued"
+    run.error = None
+    run.progress = 0
+    run.nodes = []
+    run.events = []
+    run.evidence = []
+    run.claims = []
+    run.tasks = []
+    await db.save_run(db_pool, run)
+    asyncio.create_task(workflow(run.id))
     return run
 
 

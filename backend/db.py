@@ -157,6 +157,15 @@ CREATE TABLE IF NOT EXISTS run_claims (
     evidence_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
     reason TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS data_sources (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    status TEXT NOT NULL,
+    detail TEXT NOT NULL,
+    icon TEXT NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 """
 
 
@@ -178,6 +187,12 @@ async def connect() -> asyncpg.Pool | None:
 
 async def seed(pool: asyncpg.Pool) -> None:
     async with pool.acquire() as conn:
+        await conn.execute("""INSERT INTO data_sources (id,name,source_type,status,detail,icon) VALUES
+            ('postgres','PostgreSQL warehouse','Structured data','connected','Customer accounts · usage · contracts','▦'),
+            ('pgvector','Customer evidence index','Semantic search','connected','Customer documents ready for retrieval','⌁'),
+            ('apis','External research APIs','Optional connector','available','Connect product, billing, and market context APIs','↗'),
+            ('neo4j','Relationship graph','Optional connector','not connected','Map customer, product, and stakeholder relationships','◌')
+            ON CONFLICT (id) DO NOTHING""")
         count = await conn.fetchval("SELECT COUNT(*) FROM customer_accounts")
         companies = [
             ("Northwind Health", "Enterprise", "Scale", "Avery Chen"),
@@ -295,3 +310,19 @@ async def list_runs(pool: asyncpg.Pool | None, limit: int = 40) -> list[dict[str
     async with pool.acquire() as conn:
         rows = await conn.fetch("SELECT id, objective, status, progress, current_node, approval_mode, created_at, updated_at FROM runs ORDER BY created_at DESC LIMIT $1", limit)
         return [{"id": row["id"], "objective": row["objective"], "status": row["status"], "progress": row["progress"], "current_node": row["current_node"], "approval_mode": row["approval_mode"], "created_at": row["created_at"].isoformat(), "updated_at": row["updated_at"].isoformat()} for row in rows]
+
+
+async def list_sources(pool: asyncpg.Pool | None) -> list[dict[str, Any]]:
+    if not pool:
+        return []
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT id,name,source_type,status,detail,icon,updated_at FROM data_sources ORDER BY CASE id WHEN 'postgres' THEN 1 WHEN 'pgvector' THEN 2 WHEN 'apis' THEN 3 ELSE 4 END")
+        return [{"id": row["id"], "name": row["name"], "type": row["source_type"], "status": row["status"], "detail": row["detail"], "icon": row["icon"], "updated_at": row["updated_at"].isoformat()} for row in rows]
+
+
+async def update_source(pool: asyncpg.Pool | None, source_id: str, status: str) -> bool:
+    if not pool:
+        return False
+    async with pool.acquire() as conn:
+        result = await conn.execute("UPDATE data_sources SET status=$1, updated_at=NOW() WHERE id=$2", status, source_id)
+        return result.endswith("1")
