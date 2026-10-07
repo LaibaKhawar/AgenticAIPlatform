@@ -3,7 +3,7 @@ const runButton = document.getElementById('run-button');
 const approval = document.getElementById('approval');
 let timer;
 
-const icons = {planner:'✦', postgres:'▦', vector:'⌁', investigator:'◌', approval:'♢', verifier:'✓', report:'≡'};
+const icons = {planner:'✦', postgres:'▦', vector:'⌁', investigator:'◌', parallel_investigations:'⇄', approval:'♢', verifier:'✓', report:'≡'};
 const labels = {planner:'Planner', postgres:'Account intelligence', vector:'Evidence retrieval', investigator:'Investigator', approval:'Human approval', verifier:'Verifier', report:'Report composer'};
 
 function toast(message){const el=document.getElementById('toast');el.textContent=message;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2800)}

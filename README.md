@@ -54,3 +54,41 @@ uvicorn backend.main:app --reload
 ## Production direction
 
 The schema and workflow boundary are explicit so this demo can evolve into a customer product. Next production layers are authentication and tenant isolation, real LLM/tool adapters, pgvector embeddings, a Redis/Celery or Temporal worker, OpenTelemetry tracing, migrations, backups, and managed PostgreSQL.
+
+## Cogniflow architecture
+
+```text
+User objective
+      ↓
+FastAPI API
+      ↓
+Planner → structured ExecutionPlan (tasks + dependencies)
+      ↓
+Workflow runner
+   ┌──┼─────────────┐
+   ↓  ↓             ↓
+SQL  RAG       External APIs
+agent agent         agent
+   └──┼─────────────┘
+      ↓
+Risk screening → parallel account investigations
+      ↓
+Claim-level verifier → supported / rejected claims
+      ↓
+Report generator → human approval gate → final report
+```
+
+## Synthetic customer dataset
+
+The PostgreSQL seed creates 3,000 fictional SaaS accounts with structured and unstructured signals:
+
+- `customer_accounts`, `subscriptions`, and `product_usage`
+- `support_tickets`, `support_threads`, and `customer_documents`
+- `payments`, `nps_surveys`, and `customer_outcomes`
+- historical `CHURNED` and `RENEWED` outcomes for future evaluation
+
+The first version uses deterministic tool adapters, so results are reproducible. The database is ready for replacing the document text with real embeddings and pgvector similarity search.
+
+## Workflow state
+
+Each run stores its objective, structured plan, task dependencies, task status, retry counters, events, claims, evidence, report, and approval state. This gives `GET /api/runs/{run_id}` enough information to reconstruct what happened instead of returning only the final answer.

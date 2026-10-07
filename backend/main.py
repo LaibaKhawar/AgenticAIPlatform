@@ -24,6 +24,29 @@ class RunRequest(BaseModel):
     approval_mode: Literal["required", "autonomous"] = "required"
 
 
+class Task(BaseModel):
+    id: str
+    agent: str
+    description: str
+    dependencies: list[str] = Field(default_factory=list)
+    status: str = "queued"
+    retry_count: int = 0
+
+
+class ExecutionPlan(BaseModel):
+    objective: str
+    tasks: list[Task]
+
+
+class Claim(BaseModel):
+    id: str
+    claim: str
+    verification_status: str = "pending"
+    confidence: float = 0
+    evidence_ids: list[str] = Field(default_factory=list)
+    reason: str = ""
+
+
 class RunState(BaseModel):
     id: str
     objective: str
@@ -33,9 +56,12 @@ class RunState(BaseModel):
     progress: int = 0
     current_node: str = "planner"
     approval_mode: str = "required"
+    plan: ExecutionPlan | None = None
+    tasks: list[Task] = Field(default_factory=list)
     nodes: list[dict[str, Any]] = Field(default_factory=list)
     events: list[dict[str, Any]] = Field(default_factory=list)
     evidence: list[dict[str, Any]] = Field(default_factory=list)
+    claims: list[Claim] = Field(default_factory=list)
     report: dict[str, Any] | None = None
     error: str | None = None
 
@@ -77,6 +103,18 @@ def set_node(run: RunState, node_id: str, status: str, label: str, detail: str =
         run.nodes.append({"id": node_id, "label": label, "status": status, "detail": detail})
 
 
+def build_plan(objective: str) -> ExecutionPlan:
+    tasks = [
+        Task(id="T1", agent="sql_agent", description="Identify customers with upcoming renewals and behavioral risk signals."),
+        Task(id="T2", agent="risk_agent", description="Calculate explainable churn indicators from usage, support, payment, and NPS data.", dependencies=["T1"]),
+        Task(id="T3", agent="research_agent", description="Retrieve qualitative customer evidence from documents and support threads.", dependencies=["T2"]),
+        Task(id="T4", agent="investigator_agent", description="Investigate the highest-risk accounts in parallel and propose interventions.", dependencies=["T2", "T3"]),
+        Task(id="T5", agent="verifier_agent", description="Validate every report claim against retrieved evidence IDs.", dependencies=["T4"]),
+        Task(id="T6", agent="report_agent", description="Generate a structured evidence-backed report and approval actions.", dependencies=["T5"]),
+    ]
+    return ExecutionPlan(objective=objective, tasks=tasks)
+
+
 async def pause(run: RunState, seconds: float = 0.65) -> None:
     await asyncio.sleep(seconds)
 
@@ -86,11 +124,14 @@ async def workflow(run_id: str) -> None:
     try:
         run.status = "running"
         run.current_node = "planner"
+        run.plan = build_plan(run.objective)
+        run.tasks = run.plan.tasks
         await db.save_run(db_pool, run)
         set_node(run, "planner", "running", "Planner", "Decomposing objective")
-        add_event(run, "plan", "Objective received. Building a 4-step execution graph.", "planner", {"trace_id": run.id[:8]})
+        add_event(run, "plan", "Objective received. Building a dependency-aware execution graph.", "planner", {"trace_id": run.id[:8], "task_count": len(run.tasks), "structured_output": True})
         await pause(run)
-        set_node(run, "planner", "complete", "Planner", "4 steps, 3 specialists, 1 verifier")
+        run.tasks[0].status = "complete"
+        set_node(run, "planner", "complete", "Planner", "6 tasks, 4 specialists, 1 verifier")
         run.progress = 18
         await db.save_run(db_pool, run)
 
@@ -117,6 +158,17 @@ async def workflow(run_id: str) -> None:
         await pause(run)
         set_node(run, "investigator", "complete", "Investigator", f"{snapshot['high_risk']} accounts prioritized")
         run.progress = 70
+        run.current_node = "parallel_investigations"
+        set_node(run, "parallel_investigations", "running", "Parallel investigations", "Fan-out across highest-risk accounts")
+        candidates = min(snapshot["high_risk"], 8)
+        async def investigate(account_number: int) -> dict[str, Any]:
+            await asyncio.sleep(0.12)
+            return {"account": f"acct_{account_number + 1:04d}", "status": "complete"}
+        investigated = await asyncio.gather(*(investigate(index) for index in range(candidates)))
+        run.tasks[3].status = "complete"
+        set_node(run, "parallel_investigations", "complete", "Parallel investigations", f"{len(investigated)} accounts investigated concurrently")
+        add_event(run, "parallel", f"Investigated {len(investigated)} highest-risk accounts concurrently.", "investigator-agent", {"fan_out": len(investigated), "execution": "asyncio.gather"})
+        run.progress = 76
         await db.save_run(db_pool, run)
 
         if run.approval_mode == "required":
@@ -134,7 +186,13 @@ async def workflow(run_id: str) -> None:
 
         run.current_node = "verifier"
         set_node(run, "verifier", "running", "Verifier", "Checking claims against source evidence")
-        add_event(run, "verify", "Cross-checking risk scores, citations, and unsupported claims.", "verifier-agent", {"claims_checked": 31})
+        run.claims = [
+            Claim(id="claim_usage", claim="High-risk accounts show material product usage decline.", verification_status="supported", confidence=0.97, evidence_ids=["usage_signal"], reason="Usage and session metrics declined in the latest period."),
+            Claim(id="claim_support", claim="Unresolved support friction is contributing to churn risk.", verification_status="supported", confidence=0.91, evidence_ids=["support_signal"], reason="Open support threads contain repeated workflow friction."),
+            Claim(id="claim_cancel", claim="Every high-risk account has decided to cancel.", verification_status="rejected", confidence=0.94, evidence_ids=[], reason="Evidence shows risk and evaluation of alternatives, not a confirmed cancellation decision."),
+        ]
+        run.tasks[4].status = "complete"
+        add_event(run, "verify", "Cross-checking risk scores, citations, and unsupported claims.", "verifier-agent", {"claims_checked": len(run.claims), "supported": 2, "rejected": 1})
         await pause(run)
         set_node(run, "verifier", "complete", "Verifier", "31 claims checked · 0 unresolved")
         run.progress = 88
@@ -142,6 +200,7 @@ async def workflow(run_id: str) -> None:
 
         run.current_node = "report"
         set_node(run, "report", "running", "Report composer", "Assembling evidence-backed report")
+        run.tasks[5].status = "running"
         await pause(run)
         run.evidence = [
             {"title": "Usage drop in the last 30 days", "source": "PostgreSQL · customer_activity", "confidence": 0.97, "excerpt": "Account usage fell 46% compared with the prior period.", "tag": "signal"},
@@ -151,6 +210,7 @@ async def workflow(run_id: str) -> None:
         run.report = {"headline": f"{snapshot['high_risk']} accounts need intervention before their next renewal cycle.", "summary": "The strongest shared pattern is declining product usage combined with unresolved workflow friction. Prioritize the top five accounts for a success-team review this week.", "risk_score": 0.89, "recommended_actions": ["Assign an owner to the top five accounts", "Schedule a workflow review with each account", "Re-check product usage seven days after outreach"]}
         await db.save_evidence(db_pool, run.id, run.evidence)
         set_node(run, "report", "complete", "Report composer", "Evidence-backed report ready")
+        run.tasks[5].status = "complete"
         run.progress = 100
         run.current_node = "complete"
         run.status = "complete"
@@ -180,7 +240,11 @@ async def create_run(payload: RunRequest) -> RunState:
 @app.get("/api/runs/{run_id}", response_model=RunState)
 async def get_run(run_id: str) -> RunState:
     if run_id not in runs:
-        raise HTTPException(404, "Run not found")
+        saved = await db.load_run(db_pool, run_id)
+        if saved:
+            runs[run_id] = RunState.model_validate(saved)
+        else:
+            raise HTTPException(404, "Run not found")
     return runs[run_id]
 
 
