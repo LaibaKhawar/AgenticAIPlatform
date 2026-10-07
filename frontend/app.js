@@ -20,9 +20,9 @@ function render(run){
 }
 function showApproval(run){
   if(document.getElementById('approval-action')) return;
-  const action = document.createElement('div'); action.id='approval-action'; action.className='approval-banner'; action.innerHTML=`<span>♢</span><div><strong>Human approval requested</strong><small>Atlas is ready to create customer-facing recommendations.</small></div><button id="approve-btn">Approve & continue</button>`;
+  const action = document.createElement('div'); action.id='approval-action'; action.className='approval-banner'; action.innerHTML=`<span>♢</span><div><strong>Human approval requested</strong><small>Cogniflow is ready to create customer-facing recommendations.</small></div><button id="approve-btn">Approve & continue</button>`;
   document.querySelector('.section-heading').after(action);
-  document.getElementById('approve-btn').onclick=async()=>{await fetch(`/api/runs/${run.id}/approve`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({approved:true,note:'Approved in Atlas console'})}); action.remove(); toast('Approval recorded. Workflow resumed.'); poll(run.id)};
+  document.getElementById('approve-btn').onclick=async()=>{await fetch(`/api/runs/${run.id}/approve`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({approved:true,note:'Approved in Cogniflow console'})}); action.remove(); toast('Approval recorded. Workflow resumed.'); poll(run.id)};
 }
 async function poll(id){clearTimeout(timer);const response=await fetch(`/api/runs/${id}`);if(!response.ok)return;const run=await response.json();render(run);if(['queued','running','awaiting_approval'].includes(run.status))timer=setTimeout(()=>poll(id),700)}
 runButton.onclick=async()=>{if(objective.value.trim().length<12){toast('Add a little more detail to the objective.');return}runButton.disabled=true;runButton.innerHTML='Starting… <span>↗</span>';const response=await fetch('/api/runs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({objective:objective.value,approval_mode:approval.checked?'required':'autonomous'})});const run=await response.json();toast('Run started. Planner is decomposing the objective.');poll(run.id);runButton.disabled=false;runButton.innerHTML='Start run <span>↗</span>'};

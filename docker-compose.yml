@@ -1,7 +1,30 @@
 services:
-  atlas:
+  cogniflow:
     build: .
     ports:
       - "8000:8000"
     environment:
-      ATLAS_ENV: demo
+      COGNIFLOW_ENV: local
+      DATABASE_URL: postgresql://cogniflow:cogniflow@postgres:5432/cogniflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: cogniflow
+      POSTGRES_PASSWORD: cogniflow
+      POSTGRES_DB: cogniflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - cogniflow_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cogniflow -d cogniflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  cogniflow_pgdata:

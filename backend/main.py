@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
@@ -10,6 +11,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+
+from . import db
 
 
 def now() -> str:
@@ -44,13 +47,26 @@ class ApprovalRequest(BaseModel):
 
 runs: dict[str, RunState] = {}
 approval_events: dict[str, asyncio.Event] = {}
+db_pool = None
 
-app = FastAPI(title="Atlas Agent Platform", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    global db_pool
+    db_pool = await db.connect()
+    yield
+    if db_pool:
+        await db_pool.close()
+
+app = FastAPI(title="Cogniflow Agent Platform", version="0.1.0", lifespan=lifespan)
 
 
 def add_event(run: RunState, kind: str, message: str, agent: str, metadata: dict[str, Any] | None = None) -> None:
-    run.events.append({"id": str(uuid.uuid4()), "at": now(), "kind": kind, "message": message, "agent": agent, "metadata": metadata or {}})
+    event = {"id": str(uuid.uuid4()), "at": now(), "kind": kind, "message": message, "agent": agent, "metadata": metadata or {}}
+    run.events.append(event)
     run.updated_at = now()
+    if db_pool:
+        asyncio.create_task(db.add_event(db_pool, run.id, event))
 
 
 def set_node(run: RunState, node_id: str, status: str, label: str, detail: str = "") -> None:
@@ -70,38 +86,45 @@ async def workflow(run_id: str) -> None:
     try:
         run.status = "running"
         run.current_node = "planner"
+        await db.save_run(db_pool, run)
         set_node(run, "planner", "running", "Planner", "Decomposing objective")
         add_event(run, "plan", "Objective received. Building a 4-step execution graph.", "planner", {"trace_id": run.id[:8]})
         await pause(run)
         set_node(run, "planner", "complete", "Planner", "4 steps, 3 specialists, 1 verifier")
         run.progress = 18
+        await db.save_run(db_pool, run)
 
         run.current_node = "postgres"
         set_node(run, "postgres", "running", "Account intelligence", "Querying customer health signals")
-        add_event(run, "tool", "Queried customer accounts, usage, support volume, and renewal dates.", "postgres-agent", {"rows": 1248, "latency_ms": 412})
+        snapshot = await db.account_snapshot(db_pool)
+        add_event(run, "tool", "Queried customer accounts, usage, support volume, and renewal dates.", "postgres-agent", {"rows": snapshot["accounts"], "latency_ms": 412})
         await pause(run)
-        set_node(run, "postgres", "complete", "Account intelligence", "1,248 accounts scanned")
+        set_node(run, "postgres", "complete", "Account intelligence", f"{snapshot['accounts']} accounts scanned")
         run.progress = 38
+        await db.save_run(db_pool, run)
 
         run.current_node = "vector"
         set_node(run, "vector", "running", "Evidence retrieval", "Searching semantic customer context")
-        add_event(run, "tool", "Retrieved support conversations and product feedback for high-risk accounts.", "vector-agent", {"chunks": 86, "top_k": 20})
+        add_event(run, "tool", "Retrieved support conversations and product feedback for high-risk accounts.", "vector-agent", {"chunks": snapshot["evidence_chunks"], "top_k": 20})
         await pause(run)
-        set_node(run, "vector", "complete", "Evidence retrieval", "86 relevant evidence chunks")
+        set_node(run, "vector", "complete", "Evidence retrieval", f"{snapshot['evidence_chunks']} relevant evidence chunks")
         run.progress = 55
+        await db.save_run(db_pool, run)
 
         run.current_node = "investigator"
         set_node(run, "investigator", "running", "Investigator", "Triaging risk signals and external context")
-        add_event(run, "agent", "Ranked 17 accounts above the churn-risk threshold.", "investigator-agent", {"threshold": 0.72, "high_risk": 17})
+        add_event(run, "agent", f"Ranked {snapshot['high_risk']} accounts above the churn-risk threshold.", "investigator-agent", {"threshold": 0.70, "high_risk": snapshot["high_risk"]})
         await pause(run)
-        set_node(run, "investigator", "complete", "Investigator", "17 accounts prioritized")
+        set_node(run, "investigator", "complete", "Investigator", f"{snapshot['high_risk']} accounts prioritized")
         run.progress = 70
+        await db.save_run(db_pool, run)
 
         if run.approval_mode == "required":
             run.status = "awaiting_approval"
             run.current_node = "approval"
             set_node(run, "approval", "waiting", "Human approval", "Ready to create outreach recommendations")
             add_event(run, "approval", "Approval required before producing customer-facing recommendations.", "policy-gate", {"scope": "sensitive_action"})
+            await db.save_run(db_pool, run)
             approval_events[run_id] = asyncio.Event()
             await approval_events[run_id].wait()
             if run.status == "rejected":
@@ -115,6 +138,7 @@ async def workflow(run_id: str) -> None:
         await pause(run)
         set_node(run, "verifier", "complete", "Verifier", "31 claims checked · 0 unresolved")
         run.progress = 88
+        await db.save_run(db_pool, run)
 
         run.current_node = "report"
         set_node(run, "report", "running", "Report composer", "Assembling evidence-backed report")
@@ -124,27 +148,31 @@ async def workflow(run_id: str) -> None:
             {"title": "Unresolved support friction", "source": "Vector search · support_threads", "confidence": 0.91, "excerpt": "Three conversations mention repeated export failures and slow resolution.", "tag": "context"},
             {"title": "Renewal window opens in 21 days", "source": "PostgreSQL · contracts", "confidence": 0.99, "excerpt": "The renewal date is close enough to prioritize an intervention.", "tag": "timing"},
         ]
-        run.report = {"headline": "17 accounts need intervention before their next renewal cycle.", "summary": "The strongest shared pattern is declining product usage combined with unresolved workflow friction. Prioritize the top five accounts for a success-team review this week.", "risk_score": 0.89, "recommended_actions": ["Assign an owner to the top five accounts", "Schedule a workflow review with each account", "Re-check product usage seven days after outreach"]}
+        run.report = {"headline": f"{snapshot['high_risk']} accounts need intervention before their next renewal cycle.", "summary": "The strongest shared pattern is declining product usage combined with unresolved workflow friction. Prioritize the top five accounts for a success-team review this week.", "risk_score": 0.89, "recommended_actions": ["Assign an owner to the top five accounts", "Schedule a workflow review with each account", "Re-check product usage seven days after outreach"]}
+        await db.save_evidence(db_pool, run.id, run.evidence)
         set_node(run, "report", "complete", "Report composer", "Evidence-backed report ready")
         run.progress = 100
         run.current_node = "complete"
         run.status = "complete"
         add_event(run, "complete", "Report generated with citations and recommended next actions.", "report-agent", {"evidence_items": 3})
+        await db.save_run(db_pool, run)
     except Exception as exc:
         run.status = "failed"
         run.error = str(exc)
         add_event(run, "error", "Workflow stopped and checkpoint saved for retry.", "system", {"error": str(exc)})
+        await db.save_run(db_pool, run)
 
 
 @app.get("/api/health")
 async def health() -> dict[str, Any]:
-    return {"status": "ok", "service": "atlas-orchestrator", "active_runs": sum(r.status in {"running", "awaiting_approval"} for r in runs.values()), "agents": 5}
+    return {"status": "ok", "service": "cogniflow-orchestrator", "database": "connected" if db_pool else "demo-fallback", "active_runs": sum(r.status in {"running", "awaiting_approval"} for r in runs.values()), "agents": 5}
 
 
 @app.post("/api/runs", response_model=RunState, status_code=202)
 async def create_run(payload: RunRequest) -> RunState:
     run = RunState(id=f"run_{uuid.uuid4().hex[:10]}", objective=payload.objective, approval_mode=payload.approval_mode)
     runs[run.id] = run
+    await db.save_run(db_pool, run)
     asyncio.create_task(workflow(run.id))
     return run
 

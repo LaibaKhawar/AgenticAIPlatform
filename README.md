@@ -1,17 +1,39 @@
-# Atlas — reliable agentic systems
+# Cogniflow — reliable agentic systems
 
-Atlas is a small, runnable reference implementation of an agent platform for complex, evidence-backed work. It turns a natural-language objective into a visible workflow:
+Cogniflow is an agent platform for complex, evidence-backed work. It turns a natural-language objective into a visible workflow:
 
 `Plan → Retrieve → Investigate → Verify → Report`
 
-The repository includes:
+The local environment includes:
 
-- FastAPI endpoints for creating runs, streaming structured events, approving sensitive actions, and reading the final report.
-- An async workflow runner with retries, checkpoints, human approval, and a deterministic demo mode.
-- A responsive operations console for reviewing active runs, trace events, evidence, and agent health.
-- Docker and docker-compose files for running the API and static console together.
+- FastAPI orchestration endpoints for creating runs, structured state, and human approval.
+- PostgreSQL persistence for accounts, activity, support threads, contracts, runs, events, and evidence.
+- 60 deterministic synthetic customer accounts seeded automatically on first boot.
+- pgvector-ready PostgreSQL for future semantic embeddings and vector retrieval.
+- A responsive operations console for reviewing workflow, trace events, and evidence.
+- Docker Compose for starting Cogniflow and PostgreSQL together.
 
-## Run locally
+## Run the full customer-data demo
+
+```bash
+docker compose up --build
+```
+
+Open http://localhost:8000. The first database startup seeds synthetic data automatically. Inspect it with:
+
+```bash
+docker compose exec postgres psql -U cogniflow -d cogniflow
+```
+
+Example query:
+
+```sql
+SELECT name, health_score, segment FROM customer_accounts ORDER BY health_score ASC LIMIT 10;
+```
+
+## Run the API without PostgreSQL
+
+Without `DATABASE_URL`, Cogniflow uses a temporary demo fallback and data is lost when the process stops.
 
 ```bash
 python3 -m venv .venv
@@ -20,25 +42,15 @@ pip install -r requirements.txt
 uvicorn backend.main:app --reload
 ```
 
-Open http://localhost:8000.
-
-To use Docker:
-
-```bash
-docker compose up --build
-```
-
-The demo workflow is intentionally self-contained. Integrations are represented by adapters in `backend/main.py`; replace those functions with PostgreSQL, pgvector, REST, or Neo4j clients as the platform moves beyond the demo.
-
 ## API surface
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | `POST` | `/api/runs` | Start an objective |
-| `GET` | `/api/runs/{run_id}` | Read run state, nodes, events, evidence, and report |
+| `GET` | `/api/runs/{run_id}` | Read run state, events, evidence, and report |
 | `POST` | `/api/runs/{run_id}/approve` | Release a pending sensitive action |
-| `GET` | `/api/health` | Service health and agent counts |
+| `GET` | `/api/health` | Service and database health |
 
 ## Production direction
 
-The workflow boundary is deliberately explicit. A production deployment can replace the in-process queue with Celery/Redis or Temporal, persist `RunState` and events in PostgreSQL, and add OpenTelemetry exporters without changing the frontend contract.
+The schema and workflow boundary are explicit so this demo can evolve into a customer product. Next production layers are authentication and tenant isolation, real LLM/tool adapters, pgvector embeddings, a Redis/Celery or Temporal worker, OpenTelemetry tracing, migrations, backups, and managed PostgreSQL.
