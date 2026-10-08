@@ -1,30 +1,147 @@
-services:
-  cogniflow:
-    build: .
-    ports:
-      - "8000:8000"
-    environment:
-      COGNIFLOW_ENV: local
-      DATABASE_URL: postgresql://cogniflow:cogniflow@postgres:5432/cogniflow
-    depends_on:
-      postgres:
-        condition: service_healthy
+name: veriflow
 
+x-backend-env: &backend-env
+  PRODUCT_NAME: ${PRODUCT_NAME:-Veriflow}
+  APP_ENV: ${APP_ENV:-local}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  DATABASE_URL: postgresql+psycopg://veriflow:veriflow@postgres:5432/veriflow
+  TEST_DATABASE_URL: postgresql+psycopg://veriflow:veriflow@postgres:5432/veriflow_test
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/1
+  CELERY_RESULT_BACKEND: redis://redis:6379/2
+  WORKFLOW_EXECUTOR: ${WORKFLOW_EXECUTOR:-celery}
+  MAX_PARALLEL_INVESTIGATIONS: ${MAX_PARALLEL_INVESTIGATIONS:-4}
+  LLM_PROVIDER: ${LLM_PROVIDER:-fake}
+  LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+  EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-local}
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+  OTEL_ENABLED: ${OTEL_ENABLED:-false}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+  LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+  LANGFUSE_HOST: ${LANGFUSE_HOST:-https://cloud.langfuse.com}
+  FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+  API_KEY: ${API_KEY:-}
+  FAILURE_INJECTION_ENABLED: ${FAILURE_INJECTION_ENABLED:-false}
+  LLM_FAILURE_RATE: ${LLM_FAILURE_RATE:-0.0}
+  VECTOR_FAILURE_RATE: ${VECTOR_FAILURE_RATE:-0.0}
+  SEED_CUSTOMER_COUNT: ${SEED_CUSTOMER_COUNT:-3000}
+
+services:
   postgres:
     image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_USER: cogniflow
-      POSTGRES_PASSWORD: cogniflow
-      POSTGRES_DB: cogniflow
+      POSTGRES_USER: veriflow
+      POSTGRES_PASSWORD: veriflow
+      POSTGRES_DB: veriflow
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
-      - cogniflow_pgdata:/var/lib/postgresql/data
+      - veriflow_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cogniflow -d cogniflow"]
+      test: ["CMD-SHELL", "pg_isready -U veriflow -d veriflow"]
       interval: 5s
       timeout: 5s
       retries: 20
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    volumes:
+      - veriflow_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Runs alembic migrations once, then exits. Everything else waits for it,
+  # so there is no migration race between the API and the workers.
+  migrate:
+    build:
+      context: ./backend
+    command: ["alembic", "upgrade", "head"]
+    environment: *backend-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+    command:
+      ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+    environment: *backend-env
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health/live', timeout=4).status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  worker:
+    build:
+      context: ./backend
+    command:
+      ["celery", "-A", "app.workers.celery_app:celery_app", "worker",
+       "--loglevel=info", "--concurrency=${WORKER_CONCURRENCY:-6}", "-Q", "veriflow"]
+    environment: *backend-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        ["CMD-SHELL", "celery -A app.workers.celery_app:celery_app inspect ping -d celery@$$HOSTNAME || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+        NEXT_PUBLIC_PRODUCT_NAME: ${PRODUCT_NAME:-Veriflow}
+        NEXT_PUBLIC_LIQUID_GLASS: ${NEXT_PUBLIC_LIQUID_GLASS:-off}
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+      NEXT_PUBLIC_PRODUCT_NAME: ${PRODUCT_NAME:-Veriflow}
+      NEXT_PUBLIC_LIQUID_GLASS: ${NEXT_PUBLIC_LIQUID_GLASS:-off}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/api/ping').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 20s
 
 volumes:
-  cogniflow_pgdata:
+  veriflow_pgdata:
+  veriflow_redisdata:
