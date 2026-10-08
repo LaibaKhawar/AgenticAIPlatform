@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, date, datetime
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -323,3 +323,126 @@ def test_vector_failure_injection_raises_a_retryable_error(
     db.commit()
     with pytest.raises(VectorSearchError):
         SemanticRetriever(db).search(query="anything", customer_id=customer.id)
+
+
+# --------------------------------------------------------------------------- #
+# Filtered-recall regression
+# --------------------------------------------------------------------------- #
+
+
+def test_customer_filtered_search_survives_a_large_foreign_corpus(db: Session) -> None:
+    """Regression: customer-scoped search silently returned zero rows.
+
+    An HNSW index scan gathers its `ef_search` nearest candidates by *global*
+    distance and only then applies the WHERE clause. With a filter as selective
+    as one customer among many, every candidate can be filtered away and the
+    query returns nothing — no error, just an investigation with no qualitative
+    evidence.
+
+    The earlier tests in this file never caught it because they hold a handful
+    of chunks, so the planner never prefers the vector index. This one builds a
+    corpus large enough that it does, and asserts the target account's own
+    documents still come back.
+    """
+    target = _customer(db, "Needle Co")
+    _document(
+        db,
+        target,
+        title="Renewal note",
+        content=COMPETITOR_NOTE,
+        source_type=DocumentSourceType.CUSTOMER_EMAIL,
+    )
+
+    # A corpus of unrelated accounts, well past the default ef_search of 40.
+    for index in range(120):
+        other = _customer(db, f"Haystack {index}")
+        _document(
+            db,
+            other,
+            title=f"Unrelated note {index}",
+            content=f"{INFRA_NOTE} Batch {index} completed without incident.",
+        )
+
+    ingest_documents(db, list(db.scalars(select(CustomerDocument))))
+    db.commit()
+
+    # Plan against real statistics, as production would after a seed.
+    db.execute(text("ANALYZE document_chunks"))
+    db.commit()
+
+    total = db.scalar(select(func.count()).select_from(DocumentChunk))
+    assert total is not None
+    assert total > 120, "precondition: the corpus must be large enough to favour the vector index"
+
+    results = SemanticRetriever(db).search(
+        query="evaluating alternative platforms competitor pricing renewal",
+        customer_id=target.id,
+        limit=4,
+    )
+
+    assert results, "customer-scoped search must not return an empty set when the account has documents"
+    assert {chunk.customer_id for chunk in results} == {target.id}
+
+
+def test_filtered_search_works_without_planner_statistics(db: Session) -> None:
+    """The exact failing condition: freshly inserted data, no ANALYZE yet.
+
+    This is the state a run started immediately after `make seed` saw.
+    """
+    target = _customer(db, "Fresh Needle Co")
+    _document(db, target, title="Renewal note", content=COMPETITOR_NOTE)
+    for index in range(120):
+        other = _customer(db, f"Fresh Haystack {index}")
+        _document(db, other, title=f"Note {index}", content=f"{INFRA_NOTE} Run {index}.")
+
+    ingest_documents(db, list(db.scalars(select(CustomerDocument))))
+    db.commit()
+    # Deliberately no ANALYZE.
+
+    results = SemanticRetriever(db).search(
+        query="evaluating alternative platforms competitor pricing renewal",
+        customer_id=target.id,
+        limit=4,
+    )
+    assert results, "retrieval must not depend on the planner having statistics"
+    assert {chunk.customer_id for chunk in results} == {target.id}
+
+
+def test_customer_scoped_search_enables_pgvector_iterative_scan(db: Session) -> None:
+    """Assert the guard is actually applied, not just that results look right.
+
+    Whether the planner chooses the HNSW path depends on table size and
+    statistics, so a results-only test can pass for the wrong reason — it did,
+    while the bug was live. This asserts the mechanism directly: a
+    customer-scoped search must turn on `hnsw.iterative_scan`, which is what
+    makes filtered recall correct whichever plan is chosen.
+    """
+    customer = _customer(db, "Guard Co")
+    _document(db, customer, title="Note", content=COMPETITOR_NOTE)
+    ingest_documents(db, list(CustomerRepository(db).list_documents(customer.id)))
+    db.commit()
+
+    def setting(name: str) -> str:
+        return str(db.execute(text(f"SHOW {name}")).scalar())
+
+    assert setting("hnsw.iterative_scan") == "off", "precondition: off by default"
+
+    SemanticRetriever(db).search(query="renewal competitor", customer_id=customer.id, limit=2)
+
+    assert setting("hnsw.iterative_scan") == "strict_order"
+    assert int(setting("hnsw.ef_search")) >= 100
+
+
+def test_unscoped_search_leaves_the_default_scan_behaviour(db: Session) -> None:
+    """Iterative scan is only needed for a selective filter.
+
+    An unscoped search has nothing to filter away, so it keeps the index's
+    default behaviour and its default cost.
+    """
+    customer = _customer(db, "Unscoped Co")
+    _document(db, customer, title="Note", content=COMPETITOR_NOTE)
+    ingest_documents(db, list(CustomerRepository(db).list_documents(customer.id)))
+    db.commit()
+
+    SemanticRetriever(db).search(query="renewal competitor", limit=2)
+    assert str(db.execute(text("SHOW hnsw.iterative_scan")).scalar()) == "off"

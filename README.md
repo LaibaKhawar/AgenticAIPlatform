@@ -649,6 +649,14 @@ Other reliability properties, each covered by tests:
   leaves its transaction unusable, so the outcome is always recorded through a
   fresh session. (This was a real bug: the handler used to raise while recording
   the failure, leaving the task `QUEUED` forever and the run hung.)
+- **Filtered vector search returns results, not silence.** An HNSW index scan
+  gathers its `ef_search` nearest candidates by *global* distance and only then
+  applies the WHERE clause, so a filter as selective as one customer can discard
+  every candidate and return zero rows — with no error. Customer-scoped search
+  therefore enables pgvector's `hnsw.iterative_scan`, and seeding runs `ANALYZE`
+  so the planner is never choosing a plan against an empty table. (Also a real
+  bug: a run started immediately after `make seed` retrieved no document
+  evidence at all and silently produced metrics-only investigations.)
 - **Bounded everything.** Plan tasks, tool calls per task, retrieval chunks,
   model retries, parallel investigations, prompt sizes, objective length,
   page sizes.
@@ -789,7 +797,7 @@ mode's surface, not an automatic inversion.
 
 ## Testing
 
-**479 tests**, all passing, no live API key required.
+**486 tests**, all passing, no live API key required.
 
 ```bash
 make test               # everything
@@ -803,7 +811,7 @@ make test-cov           # coverage report
 | Layer | Count | Covers |
 |---|---|---|
 | **unit** | 277 | risk maths and every null/zero/missing case, claim rules, DAG validation, retry classification, backoff, approval policy, tool permissions and budgets, structured-output schemas, injection sanitisation, chunking, embeddings, log redaction, planner parameter parsing |
-| **integration** | ~160 | migrations from scratch, every constraint, repository behaviour, N+1 avoidance, pgvector ingestion/search/metadata filtering, API contracts, pagination boundaries, auth boundary, evaluation harness, concurrency regressions |
+| **integration** | ~167 | migrations from scratch, every constraint, repository behaviour, N+1 avoidance, pgvector ingestion/search/metadata filtering/**filtered recall**, API contracts, pagination boundaries, auth boundary, evaluation harness, concurrency regressions |
 | **agents** | 39 | valid and malformed planner output, circular plans, unavailable agents, investigator structured results, hallucinated evidence ids, verifier verdicts, rule-veto precedence, reporter filtering, prompt injection in retrieved documents |
 | **e2e** | 23 | scenarios A–F below |
 

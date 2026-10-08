@@ -792,3 +792,31 @@ def test_approval_resolution_records_the_reviewer(seeded_small, db: Session) -> 
     assert approval.reviewed_by == "laiba"
     assert approval.reviewed_at is not None
     assert repository.all_resolved(run.id) is True
+
+
+def test_seeding_refreshes_planner_statistics(db: Session) -> None:
+    """A seed must leave the planner with usable statistics.
+
+    Without them, the first customer-filtered vector search can be planned
+    against an empty table, pick the HNSW index, and have the filter discard
+    every candidate — retrieval silently returns nothing. Autoanalyze would
+    catch up eventually; a run started right after seeding would not wait.
+    """
+    from sqlalchemy import text
+
+    from app.seed.generator import seed_database
+
+    db.execute(text("ANALYZE customers"))
+    before = db.execute(
+        text("SELECT last_analyze FROM pg_stat_user_tables WHERE relname = 'document_chunks'")
+    ).scalar()
+
+    seed_database(db, customer_count=20, seed=99, reset=True, batch_size=20)
+    db.commit()
+
+    after = db.execute(
+        text("SELECT last_analyze FROM pg_stat_user_tables WHERE relname = 'document_chunks'")
+    ).scalar()
+    assert after is not None, "seeding must ANALYZE document_chunks"
+    if before is not None:
+        assert after >= before

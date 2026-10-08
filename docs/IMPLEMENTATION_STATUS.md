@@ -2,7 +2,7 @@
 
 Requirement-by-requirement audit against the project brief.
 **Last verified:** full stack rebuilt from empty volumes, migrated, seeded,
-demo run executed through real Celery workers, evaluation run, 479 tests
+demo run executed through real Celery workers, evaluation run, 486 tests
 passing, ruff + mypy + tsc + eslint clean, frontend production build green.
 
 Legend: **✅ implemented** · **◐ partial** (scope stated) · **✗ not implemented**
@@ -168,9 +168,17 @@ PDF export — ✗ *optional in the brief; Markdown download implemented instead
 | No live LLM required | ✅ |
 | Asserts business behaviour, not `status_code == 200` | ✅ |
 
-Tests written alongside each phase, not deferred. Two concurrency bugs found by
+Tests written alongside each phase, not deferred. Three bugs found only by
 running the real stack are now covered by regression tests
-(`tests/integration/test_concurrency.py`).
+(`tests/integration/test_concurrency.py`, `test_pgvector_retrieval.py`):
+the evidence-reference race, the poisoned-session failure handler, and
+pgvector filtered-recall returning zero rows under a selective customer filter.
+
+The last one is worth noting as a testing lesson: the first regression test I
+wrote for it passed even with the fix removed, because the corpus was too small
+for the planner to choose the vector index. It now asserts the *mechanism*
+(`hnsw.iterative_scan` is enabled for scoped search) rather than hoping the
+planner misbehaves — and was verified to fail when the fix is reverted.
 
 ---
 
@@ -250,7 +258,7 @@ docker compose exec backend python -m app.demo
 docker compose exec backend python -m app.evaluation.cli
                                           # AUC 0.841, scope precision 1.000,
                                           # 0 rejected claims leaked
-make test                                 # 479 passed
+make test                                 # 486 passed
 make lint && make typecheck               # clean
 cd frontend && npm run build              # 12 routes built
 ```

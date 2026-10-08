@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import delete, func, insert, select
+from sqlalchemy import delete, func, insert, select, text
 from sqlalchemy.orm import Session
 
 from app.core.clock import today as clock_today
@@ -1284,9 +1284,37 @@ def seed_database(
         if progress:
             progress(stats.customers, count)
 
+    # Refresh planner statistics before anyone queries this data. Without it,
+    # the first vector search after a seed can be planned against an empty
+    # table: PostgreSQL picks the HNSW index, the customer filter removes every
+    # candidate, and retrieval silently returns nothing. Autoanalyze would get
+    # there eventually; a run started right after seeding would not wait.
+    analyze_dataset(session)
+
     stats.duration_seconds = (datetime.now(tz=UTC) - started).total_seconds()
     logger.info("seed complete", extra=stats.as_dict())
     return stats
+
+
+def analyze_dataset(session: Session) -> None:
+    """ANALYZE the tables the query planner needs good estimates for."""
+    tables = (
+        "customers",
+        "subscriptions",
+        "product_usage",
+        "support_tickets",
+        "payments",
+        "nps_surveys",
+        "customer_documents",
+        "document_chunks",
+        "customer_outcomes",
+    )
+    # ANALYZE, unlike VACUUM, is allowed inside a transaction block, so this
+    # needs no isolation-level change — attempting one on a session with an
+    # open transaction raises.
+    for table in tables:
+        session.execute(text(f"ANALYZE {table}"))
+    logger.info("planner statistics refreshed", extra={"tables": len(tables)})
 
 
 def _flush_batch(

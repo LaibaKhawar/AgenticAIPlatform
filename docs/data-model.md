@@ -70,6 +70,15 @@ CREATE INDEX ix_document_chunks_embedding_hnsw
   WITH (m = 16, ef_construction = 64);
 ```
 
+**Filtered recall.** An HNSW scan collects its `ef_search` nearest candidates by
+*global* distance and applies the WHERE clause afterwards, so a filter as
+selective as one customer can discard all of them and return zero rows with no
+error. Customer-scoped search therefore sets `hnsw.iterative_scan =
+strict_order` (SET LOCAL, pgvector 0.8+), and the seed runs `ANALYZE` so the
+planner never chooses a plan against an empty table. Both halves matter: the
+GUC makes recall correct whichever plan is picked, and the statistics make the
+cheap selective plan reachable.
+
 ### `customer_outcomes`
 One per customer. `outcome` (CHURNED / RENEWED / DOWNGRADED / EXPANDED /
 UNKNOWN) · `outcome_date` · `churn_reason` · `notes`

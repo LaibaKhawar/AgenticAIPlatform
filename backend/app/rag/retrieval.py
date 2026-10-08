@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError, OperationalError
 from sqlalchemy.orm import Session
 
@@ -51,6 +51,30 @@ class SemanticRetriever:
     def __init__(self, session: Session) -> None:
         self.session = session
 
+    def _enable_filtered_scan(self) -> None:
+        """Make customer-filtered vector search correct, not just fast.
+
+        An HNSW index scan collects its ``ef_search`` nearest candidates by
+        *global* distance and only then applies the WHERE clause. With a filter
+        as selective as one customer out of thousands, every candidate can be
+        filtered away and the query returns **zero rows** — silently, with no
+        error. We hit exactly that: a run started immediately after seeding
+        retrieved no document evidence at all, because the planner had no
+        statistics yet and chose the HNSW path (`Rows Removed by Filter: 40`).
+
+        `hnsw.iterative_scan` (pgvector 0.8+) makes the scan keep going until
+        the LIMIT is satisfied, so recall no longer depends on which plan the
+        planner happens to pick. `strict_order` preserves exact distance
+        ordering. Both are SET LOCAL, so they cannot leak out of this
+        transaction, and an older pgvector that does not know the parameter is
+        tolerated rather than fatal.
+        """
+        try:
+            self.session.execute(text("SET LOCAL hnsw.iterative_scan = strict_order"))
+            self.session.execute(text("SET LOCAL hnsw.ef_search = 100"))
+        except (OperationalError, DBAPIError) as error:  # pragma: no cover - older pgvector
+            logger.debug("iterative scan unavailable", extra={"error": str(error)[:200]})
+
     def search(
         self,
         *,
@@ -75,6 +99,8 @@ class SemanticRetriever:
             **{"vector.top_k": top_k, "vector.customer_scoped": customer_id is not None},
         ):
             embedding = get_embedding_service().embed_query(query)
+            if customer_id is not None:
+                self._enable_filtered_scan()
             distance = DocumentChunk.embedding.cosine_distance(embedding)
             statement = (
                 select(
