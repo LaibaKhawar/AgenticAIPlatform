@@ -42,7 +42,7 @@ Legend: **✅ implemented** · **◐ partial** (scope stated) · **✗ not imple
 | Evaluation | ✅ | real harness, `app/evaluation/` |
 | Frontend product design | ✅ | 11 routes, Next.js 15 |
 | Docker deployment | ✅ | 6 compose services, health-gated |
-| Testing | ✅ | 479 tests across 4 layers |
+| Testing | ✅ | 486 tests across 4 layers |
 
 ---
 
