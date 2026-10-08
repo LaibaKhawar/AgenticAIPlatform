@@ -1,0 +1,53 @@
+[project]
+name = "veriflow-backend"
+version = "1.0.0"
+description = "Veriflow — enterprise AI investigation and agent-orchestration platform"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "RUF", "ASYNC", "DTZ", "PT"]
+ignore = [
+  "B008",   # FastAPI Depends(...) in defaults is idiomatic
+  "RUF012", # ClassVar annotations not required for simple registries
+  "SIM108", # ternaries are not always clearer
+  "PT011",  # pytest.raises(Exception) with match is enforced case by case
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Prose-heavy modules: synthetic document templates and long prompt strings read
+# better unwrapped than hard-wrapped at a column boundary.
+"app/seed/documents.py" = ["E501"]
+"app/seed/generator.py" = ["E501"]
+"app/rag/sanitize.py" = ["E501"]
+"app/analytics/claim_rules.py" = ["E501"]
+"app/llm/embeddings.py" = ["E501"]
+"tests/*" = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["app"]
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true
+warn_unused_configs = true
+warn_redundant_casts = true
+no_implicit_optional = true
+check_untyped_defs = true
+disallow_untyped_defs = false
+exclude = "alembic/"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+  "unit: fast tests with no external services",
+  "integration: requires PostgreSQL with pgvector",
+  "agents: agent behaviour against the deterministic fake LLM",
+  "e2e: full workflow execution end to end",
+  "live_llm: optional, requires a real OPENAI_API_KEY (deselected by default)",
+]
+filterwarnings = ["ignore::DeprecationWarning"]
