@@ -1,9 +1,10 @@
 # Implementation status
 
 Requirement-by-requirement audit against the project brief.
-**Last verified:** full stack rebuilt from empty volumes, migrated, seeded,
-demo run executed through real Celery workers, evaluation run, 486 tests
-passing, ruff + mypy + tsc + eslint clean, frontend production build green.
+**Last verified (2026-10-13):** full stack rebuilt, migrated, seeded, demo run
+executed through real Celery workers, evaluation run, 490 tests passing, ruff +
+mypy + tsc + eslint clean, frontend production build green, and every frontend
+route loaded in a real browser against the live API with no console errors.
 
 Legend: **✅ implemented** · **◐ partial** (scope stated) · **✗ not implemented**
 (reason stated)
@@ -40,9 +41,9 @@ Legend: **✅ implemented** · **◐ partial** (scope stated) · **✗ not imple
 | Observability | ✅ | JSON logs + OTEL spans + per-call metering |
 | Tracing | ✅ | OpenTelemetry, 11 span names |
 | Evaluation | ✅ | real harness, `app/evaluation/` |
-| Frontend product design | ✅ | 11 routes, Next.js 15 |
+| Frontend product design | ✅ | 13 routes, Next.js 15 |
 | Docker deployment | ✅ | 6 compose services, health-gated |
-| Testing | ✅ | 486 tests across 4 layers |
+| Testing | ✅ | 490 tests across 4 layers |
 
 ---
 
@@ -81,7 +82,8 @@ and natural unique keys for idempotency. Alembic migrations only — ✅
 **Demo account** `CUST-000001` Acme Corp — every specified characteristic
 pinned: Enterprise, $8,200 MRR, renewal ~31 days, DAU 82→43, tickets 3→11, NPS
 8→3, invoice 38 days overdue, competitor email, CSM note naming Competitor X and
-pricing/reporting concerns. Scores **96.2 CRITICAL**. "Evaluating alternatives"
+pricing/reporting concerns. Scores **CRITICAL** (98.1 deterministic on the last
+verification run; the exact figure moves with the renewal countdown). "Evaluating alternatives"
 → SUPPORTED; "has decided to cancel" → **CONTRADICTED** — ✅
 
 ---
@@ -112,7 +114,8 @@ class, timeout, retry policy. No arbitrary SQL; all inputs validated — ✅
 output schema, timeout, retries, tracing. Planner, data, retrieval,
 investigator, verifier, reporter all per spec, plus risk and policy — ✅
 
-**API** — all 21 specified endpoints, plus 12 more. Pagination on every
+**API** — all 21 specified endpoints, plus 13 more (including
+`GET /api/v1/system/stack`, live runtime and server versions). Pagination on every
 collection, proper 404s, structured validation errors, working OpenAPI — ✅
 
 ---
@@ -149,6 +152,12 @@ valid no-high-risk report, partial-data continuation — ✅
 liquid-glass-js inspected, vendored and used carefully on one surface with
 documented reasoning — ✅ (see `docs/frontend.md`)
 
+Beyond the brief: a **Stack** page (frontend versions resolved from the
+lockfile at build, backend and server versions read live from
+`GET /api/v1/system/stack`, never hard-coded) and a **Settings** page (theme,
+motion and flow preferences synced across components and tabs, plus live
+dependency status). Both verified against the running stack — ✅
+
 PDF export — ✗ *optional in the brief; Markdown download implemented instead.*
 
 ---
@@ -184,7 +193,7 @@ planner misbehaves — and was verified to fail when the fix is reverted.
 
 ## Quality, Docker, docs
 
-Ruff clean, mypy clean (78 files), `tsc --noEmit` clean, ESLint clean, frontend
+Ruff clean, mypy clean (79 files), `tsc --noEmit` clean, ESLint clean, frontend
 production build green. No global suppressions — ✅
 
 Dockerfiles for backend, frontend and worker (worker shares the backend image —
@@ -235,6 +244,45 @@ Stated plainly rather than hidden:
 
 ## Verification log
 
+### 2026-10-13 — Stack and Settings pages, frontend redesign
+
+Run against the existing development volumes (the 3,000-customer dataset was
+already seeded, so `make seed` correctly reported it as present and skipped).
+Host Redis was published on 6381 (`REDIS_PORT=6381`) because another local
+project already held 6380; nothing else was changed.
+
+```
+ruff check . && mypy && pytest            # backend venv, Python 3.11
+                                          # ruff clean; mypy clean (79 files)
+                                          # 490 passed against real
+                                          # PostgreSQL 16 + pgvector and Redis
+cd frontend && npm run lint && npm run typecheck && npm run build
+                                          # clean; 13 app routes + /api/ping
+docker compose up -d --build              # 6 services, all healthy
+make seed                                 # skipped: 3,000 customers present
+curl /api/v1/system/stack                 # Python 3.12.15, FastAPI 0.142.3,
+                                          # PostgreSQL 16.15, pgvector 0.8.7,
+                                          # Redis 7.4.11, all reachable
+docker compose exec backend python -m app.demo
+                                          # COMPLETED via Celery: 12 tasks,
+                                          # 5 investigations, 47 evidence,
+                                          # 34 claims, 10 approvals approved;
+                                          # Acme 100.0 CRITICAL (98.1 det.),
+                                          # "decided to cancel" → CONTRADICTED
+docker compose exec backend python -m app.evaluation.cli
+                                          # AUC 0.841, scope precision 1.000,
+                                          # 0 rejected claims leaked
+Playwright (Chrome), dark and light       # all 13 routes + a 404 load against
+                                          # the live API with no console errors
+                                          # or failed API requests; sidebar
+                                          # flow transition, Display menu,
+                                          # Settings tabs, Stack filter, run
+                                          # detail tabs exercised; no page-level
+                                          # horizontal scroll at 390px
+```
+
+### Original clean-environment verification
+
 Commands run against a clean environment, in order:
 
 ```
@@ -258,7 +306,7 @@ docker compose exec backend python -m app.demo
 docker compose exec backend python -m app.evaluation.cli
                                           # AUC 0.841, scope precision 1.000,
                                           # 0 rejected claims leaked
-make test                                 # 486 passed
+make test                                 # 486 passed (at the time)
 make lint && make typecheck               # clean
 cd frontend && npm run build              # 12 routes built
 ```

@@ -28,3 +28,7 @@ Thumbs.db
 *.swp
 .idea/
 .vscode/
+
+# Local agent tooling (not part of the project)
+.agents/
+.claude/

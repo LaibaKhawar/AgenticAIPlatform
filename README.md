@@ -740,18 +740,28 @@ platform.
 `/api/v1` request must present `X-API-Key` (health and docs stay public). It is
 a single dependency (`app/api/deps.require_api_key`) attached at router level, so
 production auth — OIDC, session cookies, per-tenant keys — replaces one function
-rather than touching 33 endpoints. There is no multi-tenancy; see
+rather than touching 34 endpoints. There is no multi-tenancy; see
 [Limitations](#limitations).
 
 ---
 
 ## Frontend
 
-Next.js 15 (App Router) · React 19 · TypeScript strict · Tailwind v4 · Recharts.
+Next.js 15 (App Router) · React 19 · TypeScript strict · Tailwind v4 · Recharts · Motion.
 
-Seven screens, all driven by real API data: **Dashboard**, **Investigations**
-(list + detail), **Customers** (list + detail), **Reports**, **Approvals**,
-**Evaluation**, **System**.
+Seven product screens, all driven by real API data: **Dashboard**,
+**Investigations** (list + detail), **Customers** (list + detail), **Reports**,
+**Approvals**, **Evaluation**, **System**. Two more describe the app itself:
+**Stack** (frontend versions from the lockfile; backend, PostgreSQL, pgvector
+and Redis versions read live from `GET /api/v1/system/stack`) and **Settings**
+(theme, motion and flow preferences, plus live dependency status).
+
+The visual system is built on three Pantone colours (Beacon Blue, Aqua Splash,
+Georgia Peach) with every text pairing checked at >= 4.5:1 in both themes, and
+a dependency-free Canvas 2D "flow" that carries the product's idea (evidence in,
+verification, a trusted conclusion out) on the dashboard and in page
+transitions. All motion respects `prefers-reduced-motion` and an in-app
+override. Details in [`docs/frontend.md`](docs/frontend.md).
 
 Every state is designed: skeletons while loading, empty states that say what to
 do next, error states that render the backend's structured message and code,
@@ -787,8 +797,8 @@ fixed order (never cycled), a single-hue sequential ramp for magnitude, and a
 reserved status palette for state — always paired with an icon and a label, so
 meaning is never carried by colour alone. One y-axis, never two. Every plotted
 chart has a hover tooltip, a legend when it has two or more series, and a **table
-view** behind a toggle, which also serves as the contrast relief for the
-light-mode series that sit below 3:1 against white.
+view** behind a toggle. Every series clears 3:1 against every surface in both
+themes, so the table is a convenience rather than contrast relief.
 
 Dark and light themes are each a *selected* set of steps validated against that
 mode's surface, not an automatic inversion.
@@ -797,11 +807,11 @@ mode's surface, not an automatic inversion.
 
 ## Testing
 
-**486 tests**, all passing, no live API key required.
+**490 tests**, all passing, no live API key required.
 
 ```bash
 make test               # everything
-make test-unit          # 277 tests, no database
+make test-unit          # 280 tests, no database
 make test-integration   # real PostgreSQL + pgvector
 make test-agents        # agent behaviour against the deterministic provider
 make test-e2e           # full workflow scenarios
@@ -810,8 +820,8 @@ make test-cov           # coverage report
 
 | Layer | Count | Covers |
 |---|---|---|
-| **unit** | 277 | risk maths and every null/zero/missing case, claim rules, DAG validation, retry classification, backoff, approval policy, tool permissions and budgets, structured-output schemas, injection sanitisation, chunking, embeddings, log redaction, planner parameter parsing |
-| **integration** | ~167 | migrations from scratch, every constraint, repository behaviour, N+1 avoidance, pgvector ingestion/search/metadata filtering/**filtered recall**, API contracts, pagination boundaries, auth boundary, evaluation harness, concurrency regressions |
+| **unit** | 280 | risk maths and every null/zero/missing case, claim rules, DAG validation, retry classification, backoff, approval policy, tool permissions and budgets, structured-output schemas, injection sanitisation, chunking, embeddings, log redaction, planner parameter parsing, the live stack probe |
+| **integration** | 147 | migrations from scratch, every constraint, repository behaviour, N+1 avoidance, pgvector ingestion/search/metadata filtering/**filtered recall**, API contracts, pagination boundaries, auth boundary, evaluation harness, concurrency regressions |
 | **agents** | 39 | valid and malformed planner output, circular plans, unavailable agents, investigator structured results, hallucinated evidence ids, verifier verdicts, rule-veto precedence, reporter filtering, prompt injection in retrieved documents |
 | **e2e** | 23 | scenarios A–F below |
 
