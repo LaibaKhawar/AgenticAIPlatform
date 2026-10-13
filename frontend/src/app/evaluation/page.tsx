@@ -57,7 +57,7 @@ export default function EvaluationPage() {
   const hasMetrics = Boolean(metrics && metrics.ranking)
 
   return (
-    <div className="space-y-5">
+    <div className="stagger space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="mb-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-ink-muted">
@@ -145,7 +145,7 @@ function EvaluationResults({
   const leaked = Number(reports.rejected_claims_leaked_into_reports ?? 0)
 
   return (
-    <div className="space-y-5">
+    <div className="stagger space-y-5">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] text-ink-muted">
         <span>{evaluation.name}</span>
         <Badge tone={evaluation.status === 'COMPLETED' ? 'good' : 'warning'}>{evaluation.status}</Badge>

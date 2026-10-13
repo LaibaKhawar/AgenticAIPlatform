@@ -101,7 +101,7 @@ export default function ReportPage() {
   )
 
   return (
-    <div className="space-y-5">
+    <div className="stagger space-y-5">
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">

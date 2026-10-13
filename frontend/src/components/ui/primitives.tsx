@@ -11,6 +11,7 @@
 import clsx from 'clsx'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
+import { useCountUp, useSpotlight } from '@/lib/motion'
 
 /* -------------------------------------------------------------------------- */
 /* Surfaces                                                                   */
@@ -20,15 +21,22 @@ export function GlassPanel({
   children,
   className,
   strong = false,
+  spotlight = false,
   as: Component = 'div',
 }: {
   children: ReactNode
   className?: string
   strong?: boolean
+  /** A soft light that follows the cursor across the surface. */
+  spotlight?: boolean
   as?: 'div' | 'section' | 'aside' | 'article'
 }) {
+  const { onPointerMove } = useSpotlight<HTMLElement>()
   return (
-    <Component className={clsx('glass', strong && 'glass-strong', className)}>
+    <Component
+      onPointerMove={spotlight ? onPointerMove : undefined}
+      className={clsx('glass', strong && 'glass-strong', spotlight && 'spotlight', className)}
+    >
       <div className="relative z-1">{children}</div>
     </Component>
   )
@@ -43,7 +51,7 @@ export function Panel({
   className?: string
   as?: 'div' | 'section' | 'article'
 }) {
-  return <Component className={clsx('panel', className)}>{children}</Component>
+  return <Component className={clsx('panel shadow-[0_18px_48px_-36px_rgb(4_6_20/0.55)]', className)}>{children}</Component>
 }
 
 export function SectionHeader({
@@ -126,16 +134,23 @@ export function Badge({
 /* Buttons                                                                   */
 /* -------------------------------------------------------------------------- */
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success'
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'brand' | 'onDark'
 
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   primary:
-    'bg-accent text-[var(--accent-ink)] hover:bg-accent-strong shadow-[0_8px_24px_-12px_var(--accent-ring)]',
-  secondary: 'bg-surface-raised text-ink ring-1 ring-inset ring-[var(--line-strong)] hover:bg-surface-sunken',
+    'sheen bg-primary text-primary-ink hover:bg-primary-hover shadow-[0_10px_28px_-12px_var(--primary-glow)] hover:shadow-[0_14px_34px_-12px_var(--primary-glow)]',
+  secondary:
+    'bg-surface-raised text-ink ring-1 ring-inset ring-[var(--line-strong)] hover:bg-surface-sunken hover:ring-[var(--accent-ring)]',
   ghost: 'text-ink-secondary hover:bg-surface-sunken hover:text-ink',
   danger:
     'bg-[color-mix(in_srgb,var(--status-critical)_90%,black)] text-white hover:bg-[var(--status-critical)]',
   success: 'bg-[color-mix(in_srgb,var(--status-good)_88%,black)] text-white hover:bg-[var(--status-good)]',
+  /* For the Beacon Blue hero band, in either theme: Aqua Splash with Beacon
+     Blue text (7.7:1), and a translucent outline button (white on navy). */
+  brand:
+    'sheen bg-aqua text-beacon hover:bg-[#a3dde0] shadow-[0_12px_32px_-12px_rgb(133_206_209/0.75)] hover:shadow-[0_16px_40px_-12px_rgb(133_206_209/0.85)]',
+  onDark:
+    'text-[#f2f3fa] ring-1 ring-inset ring-white/20 bg-white/[0.06] hover:bg-white/[0.12] hover:ring-white/35 backdrop-blur-sm',
 }
 
 const BUTTON_SIZES = {
@@ -169,7 +184,7 @@ export function Button({
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={clsx(
-        'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors',
+        'press lift inline-flex items-center justify-center gap-2 rounded-lg font-medium',
         'disabled:cursor-not-allowed disabled:opacity-50',
         BUTTON_VARIANTS[variant],
         BUTTON_SIZES[size],
@@ -194,7 +209,7 @@ export function LinkButton({
     <Link
       href={href}
       className={clsx(
-        'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors',
+        'press lift inline-flex items-center justify-center gap-2 rounded-lg font-medium',
         BUTTON_VARIANTS[variant],
         BUTTON_SIZES[size],
         className,
@@ -263,7 +278,7 @@ export function EmptyState({
   return (
     <div className={clsx('flex flex-col items-center justify-center px-6 py-12 text-center', className)}>
       {icon ? (
-        <div className="mb-3 grid h-11 w-11 place-items-center rounded-xl bg-surface-sunken text-ink-muted ring-1 ring-inset ring-[var(--line)]">
+        <div className="float-slow mb-3 grid h-11 w-11 place-items-center rounded-xl bg-accent-wash text-accent ring-1 ring-inset ring-[var(--accent-ring)]">
           {icon}
         </div>
       ) : null}
@@ -328,6 +343,8 @@ export function ErrorState({
 export function StatTile({
   label,
   value,
+  countTo,
+  format,
   hint,
   tone = 'neutral',
   icon,
@@ -336,12 +353,30 @@ export function StatTile({
 }: {
   label: string
   value: ReactNode
+  /**
+   * The raw number behind `value`. When given, the tile counts up to it (and
+   * tweens between polled updates) using `format`; it always lands exactly on
+   * the real value, and screen readers only ever hear the final `value`.
+   */
+  countTo?: number | null
+  format?: (value: number) => string
   hint?: ReactNode
   tone?: Tone
   icon?: ReactNode
   href?: string
   emphasis?: boolean
 }) {
+  const animated = useCountUp(countTo ?? null)
+  const { onPointerMove } = useSpotlight<HTMLElement>()
+  const shown =
+    countTo !== undefined && countTo !== null && animated !== null && format ? (
+      <>
+        <span aria-hidden>{format(animated)}</span>
+        <span className="sr-only">{value}</span>
+      </>
+    ) : (
+      value
+    )
   const body = (
     <>
       <div className="flex items-start justify-between gap-2">
@@ -352,7 +387,7 @@ export function StatTile({
       </div>
       <div
         className={clsx(
-          'mt-2 font-semibold tabular-nums tracking-[-0.02em]',
+          'num mt-2 font-semibold tracking-[-0.03em]',
           emphasis ? 'text-[30px] leading-none' : 'text-[24px] leading-none',
           tone === 'critical' && 'text-[var(--status-critical)]',
           tone === 'serious' && 'text-[var(--status-serious)]',
@@ -362,24 +397,26 @@ export function StatTile({
           (tone === 'neutral' || tone === 'muted') && 'text-ink',
         )}
       >
-        {value}
+        {shown}
       </div>
       {hint ? <div className="mt-1.5 text-[11.5px] leading-tight text-ink-muted">{hint}</div> : null}
     </>
   )
 
-  const classes =
-    'glass rounded-card px-4 py-3.5 transition-colors' + (href ? ' hover:bg-[var(--glass-bg-strong)]' : '')
+  const classes = clsx(
+    'glass spotlight block rounded-card px-4 py-3.5',
+    href && 'lift press hover:bg-[var(--glass-bg-strong)] hover:border-[var(--accent-ring)]',
+  )
 
   if (href) {
     return (
-      <Link href={href} className={classes}>
+      <Link href={href} className={classes} onPointerMove={onPointerMove}>
         <div className="relative z-1">{body}</div>
       </Link>
     )
   }
   return (
-    <div className={classes}>
+    <div className={classes} onPointerMove={onPointerMove}>
       <div className="relative z-1">{body}</div>
     </div>
   )
@@ -409,11 +446,14 @@ export function ProgressBar({
   tone = 'accent',
   label,
   className,
+  live = false,
 }: {
   value: number
   tone?: Tone
   label?: string
   className?: string
+  /** Work is still in flight: adds a slow moving stripe (motion-gated). */
+  live?: boolean
 }) {
   const clamped = Math.max(0, Math.min(100, value))
   const colour =
@@ -436,8 +476,8 @@ export function ProgressBar({
       className={clsx('h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken', className)}
     >
       <div
-        className="h-full rounded-full transition-[width] duration-500 ease-out"
-        style={{ width: `${clamped}%`, background: colour }}
+        className={clsx('h-full rounded-full transition-[width] duration-700 ease-out', live && 'progress-live')}
+        style={{ width: `${clamped}%`, backgroundColor: colour }}
       />
     </div>
   )
@@ -487,8 +527,8 @@ export function Row({
     <tr
       onClick={onClick}
       className={clsx(
-        'border-b border-[var(--line)] last:border-0',
-        onClick && 'cursor-pointer hover:bg-surface-sunken',
+        'border-b border-[var(--line)] transition-colors duration-150 last:border-0 hover:bg-accent-wash',
+        onClick && 'cursor-pointer',
         className,
       )}
     >
@@ -735,5 +775,30 @@ export const MenuIcon = icon(
     <path d="M4 7h16" />
     <path d="M4 12h16" />
     <path d="M4 17h16" />
+  </>,
+)
+export const LayersIcon = icon(
+  <>
+    <path d="m12 3 9 5-9 5-9-5 9-5Z" />
+    <path d="m3 13 9 5 9-5" />
+  </>,
+)
+export const SlidersIcon = icon(
+  <>
+    <path d="M4 7h10" />
+    <path d="M18 7h2" />
+    <circle cx="16" cy="7" r="2" />
+    <path d="M4 17h4" />
+    <path d="M12 17h8" />
+    <circle cx="10" cy="17" r="2" />
+  </>,
+)
+export const PlayIcon = icon(<path d="M8 5.5v13l10-6.5-10-6.5Z" />)
+export const WaveIcon = icon(<path d="M3 12c2.5-5 5-5 7.5 0s5 5 7.5 0 2.2-3 3-3" />)
+export const MonitorIcon = icon(
+  <>
+    <rect x="3" y="4.5" width="18" height="12" rx="2" />
+    <path d="M9 20h6" />
+    <path d="M12 16.5V20" />
   </>,
 )

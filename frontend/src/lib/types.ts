@@ -720,3 +720,17 @@ export interface ApiErrorBody {
     details?: Record<string, unknown>
   }
 }
+
+/** GET /api/v1/system/stack — versions read live from the running services. */
+export interface StackService {
+  name: 'postgresql' | 'pgvector' | 'redis' | string
+  version: string | null
+  reachable: boolean
+}
+
+export interface StackInfo {
+  python: string
+  /** Installed distribution versions; null when a package is not installed. */
+  libraries: Record<string, string | null>
+  services: StackService[]
+}

@@ -1,5 +1,6 @@
 'use client'
 
+import { AnimatedBackground } from '@/components/core/animated-background'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useState } from 'react'
@@ -106,7 +107,7 @@ export default function RunDetailPage() {
   const canCancel = !['COMPLETED', 'FAILED', 'CANCELLED'].includes(meta.status)
 
   return (
-    <div className="space-y-5">
+    <div className="stagger space-y-5">
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
@@ -238,28 +239,35 @@ export default function RunDetailPage() {
 
       {/* Tabs */}
       <nav className="flex gap-1 border-b border-[var(--line)]" aria-label="Run detail sections">
-        {(
-          [
-            ['overview', 'Overview'],
-            ['results', `Results${investigations.data ? ` (${investigations.data.length})` : ''}`],
-            ['tasks', `Tasks (${detail.tasks.length})`],
-            ['audit', `Audit trail (${detail.events.length})`],
-          ] as Array<[Tab, string]>
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            aria-current={tab === id ? 'page' : undefined}
-            onClick={() => setTab(id)}
-            className={
-              tab === id
-                ? '-mb-px border-b-2 border-accent px-3 py-2 text-[13px] font-medium text-ink'
-                : '-mb-px border-b-2 border-transparent px-3 py-2 text-[13px] text-ink-secondary hover:text-ink'
-            }
-          >
-            {label}
-          </button>
-        ))}
+        <AnimatedBackground
+          enableHover
+          className="rounded-t-lg bg-accent-wash"
+          transition={{ type: 'spring', bounce: 0.15, duration: 0.3 }}
+        >
+          {(
+            [
+              ['overview', 'Overview'],
+              ['results', `Results${investigations.data ? ` (${investigations.data.length})` : ''}`],
+              ['tasks', `Tasks (${detail.tasks.length})`],
+              ['audit', `Audit trail (${detail.events.length})`],
+            ] as Array<[Tab, string]>
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              data-id={id}
+              type="button"
+              aria-current={tab === id ? 'page' : undefined}
+              onClick={() => setTab(id)}
+              className={
+                tab === id
+                  ? '-mb-px rounded-t-lg border-b-2 border-accent px-3 py-2 text-[13px] font-medium text-ink'
+                  : '-mb-px rounded-t-lg border-b-2 border-transparent px-3 py-2 text-[13px] text-ink-secondary hover:text-ink'
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </AnimatedBackground>
       </nav>
 
       {tab === 'overview' ? (

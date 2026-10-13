@@ -1,150 +1,252 @@
 @import 'tailwindcss';
 
 /* ========================================================================== *
- * Veriflow design tokens
+ * Veriflow design tokens — Pantone palette
  *
- * Dark-first: the glass treatment and the data palette were both validated
- * against the dark surface below. Light mode is a *selected* set of steps from
- * the same ramps, not an automatic inversion.
+ *   Beacon Blue    19-3942 TCX  #252A50   foundation: planes, ink, primary
+ *   Aqua Splash    14-4812 TCX  #85CED1   the one interactive accent
+ *   Georgia Peach  16-1641 TCX  #F97272   warm highlight, used sparingly
  *
- * The data-visualisation palette is the validated default from the dataviz
- * reference instance, re-validated against these surfaces
- * (dark #15191f, light #ffffff) for both adjacent and all-pairs use.
+ * The palette is natively light-on-navy: on Beacon Blue, Aqua Splash is 7.7:1
+ * and Georgia Peach 5.0:1, but on white they fall to 1.8:1 and 2.7:1. So dark
+ * mode is the flagship and uses the true Pantone values; light mode keeps
+ * Beacon Blue as ink/primary and uses *deepened* aqua and peach steps wherever
+ * they carry text. Every text pairing below was checked at >= 4.5:1 (WCAG AA)
+ * and every chart mark at >= 3:1.
+ *
+ * Georgia Peach is deliberately kept OFF badges and status surfaces: it is
+ * nearly indistinguishable from the critical-risk red under colour-vision
+ * deficiency (dE 2.1), and in a churn-risk product a coral brand colour next
+ * to a CRITICAL badge would read as alarm. In charts it is only ever series-2,
+ * which never shares a chart with the critical colour.
  * ========================================================================== */
 
 :root {
   color-scheme: dark;
 
-  /* Planes */
-  --plane: #090c10;
-  --plane-2: #0d1117;
-  --surface: #15191f;
-  --surface-raised: #1b2027;
-  --surface-sunken: #11151a;
+  /* Pantone source values — reference these only for large fills and art. */
+  --pantone-beacon: #252a50;
+  --pantone-aqua: #85ced1;
+  --pantone-peach: #f97272;
+
+  /* Planes — a Beacon Blue ramp, darkest at the back */
+  --plane: #0b0d1c;
+  --plane-2: #10132a;
+  --surface: #161a35;
+  --surface-raised: #1c2142;
+  --surface-sunken: #121530;
+  --surface-brand: #252a50;
 
   /* Ink */
-  --ink: #f4f6f8;
-  --ink-secondary: #b3bcc7;
-  --ink-muted: #7d8794;
-  --ink-inverse: #0b0e12;
+  --ink: #f2f3fa;
+  --ink-secondary: #bcc0dc;
+  --ink-muted: #9196bb;
+  --ink-inverse: #0b0d1c;
 
   /* Lines */
-  --line: #252b34;
-  --line-strong: #323a45;
-  --gridline: #20262e;
-  --baseline: #323a45;
+  --line: #262b52;
+  --line-strong: #343a68;
+  --gridline: #20254a;
+  --baseline: #343a68;
 
-  /* Brand */
-  --accent: #4f93f0;
-  --accent-strong: #3987e5;
-  --accent-ink: #0b0e12;
-  --accent-wash: rgb(79 147 240 / 0.12);
-  --accent-ring: rgb(79 147 240 / 0.38);
+  /* Interactive accent — Aqua Splash */
+  --accent: #85ced1;
+  --accent-strong: #a3dde0;
+  --accent-ink: #252a50;
+  --accent-wash: rgb(133 206 209 / 0.12);
+  --accent-ring: rgb(133 206 209 / 0.42);
 
-  /* Status (fixed palette; never themed, always paired with an icon + label) */
-  --status-good: #0ca30c;
+  /* Primary action. Dark mode: Aqua Splash with Beacon Blue text (7.7:1). */
+  --primary: #85ced1;
+  --primary-hover: #a3dde0;
+  --primary-ink: #252a50;
+  --primary-glow: rgb(133 206 209 / 0.45);
+
+  /* Warm highlight — Georgia Peach */
+  --warm: #f97272;
+  --warm-wash: rgb(249 114 114 / 0.14);
+
+  /* Brand gradient for display type and art (both ends >= 5:1 on Beacon) */
+  --brand-from: #85ced1;
+  --brand-to: #f97272;
+
+  /* Status (fixed meanings; always paired with an icon + label) */
+  --status-good: #2fbf71;
   --status-warning: #fab219;
   --status-serious: #ec835a;
-  --status-critical: #d03b3b;
-  --status-neutral: #7d8794;
+  --status-critical: #ff5b6e;
+  --status-neutral: #9196bb;
 
-  /* Categorical data series — validated order, assigned by slot, never cycled */
-  --series-1: #3987e5;
-  --series-2: #d95926;
-  --series-3: #199e70;
-  --series-4: #c98500;
+  /* Categorical data series — assigned by slot, never cycled */
+  --series-1: #85ced1;
+  --series-2: #f97272;
+  --series-3: #b9a7f5;
+  --series-4: #fab219;
 
-  /* Sequential blue ramp (magnitude) */
-  --seq-100: #cde2fb;
-  --seq-250: #86b6ef;
-  --seq-400: #3987e5;
-  --seq-550: #1c5cab;
-  --seq-700: #0d366b;
+  /* Sequential ramp (magnitude), Aqua Splash into Beacon Blue */
+  --seq-100: #d7f0f1;
+  --seq-250: #85ced1;
+  --seq-400: #5fb0c0;
+  --seq-550: #4a8db6;
+  --seq-700: #3d5e9e;
 
   /* Glass */
-  --glass-bg: rgb(28 34 43 / 0.62);
-  --glass-bg-strong: rgb(30 37 47 / 0.78);
-  --glass-border: rgb(255 255 255 / 0.1);
+  --glass-bg: rgb(28 33 66 / 0.62);
+  --glass-bg-strong: rgb(32 38 76 / 0.8);
+  --glass-border: rgb(198 205 255 / 0.1);
   --glass-highlight: rgb(255 255 255 / 0.16);
-  --glass-shadow: 0 24px 60px -24px rgb(0 0 0 / 0.75);
+  --glass-shadow: 0 24px 60px -24px rgb(4 6 20 / 0.85);
+
+  /* Ambient field */
+  --ambient-a: rgb(133 206 209 / 0.17);
+  --ambient-b: rgb(249 114 114 / 0.11);
+  --ambient-c: rgb(37 42 80 / 0.9);
+  --grain-opacity: 0.05;
 
   --radius: 14px;
   --radius-lg: 20px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast: 160ms;
+  --dur: 240ms;
+  --dur-slow: 620ms;
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
 
-  --plane: #f2f4f7;
-  --plane-2: #f7f9fb;
+  --plane: #f4f5fb;
+  --plane-2: #fafbfe;
   --surface: #ffffff;
   --surface-raised: #ffffff;
-  --surface-sunken: #f4f6f9;
+  --surface-sunken: #eef0f8;
+  --surface-brand: #252a50;
 
-  --ink: #0b0e12;
-  --ink-secondary: #4a5461;
-  --ink-muted: #6c7682;
+  --ink: #151833;
+  --ink-secondary: #41466b;
+  --ink-muted: #5f6488;
   --ink-inverse: #ffffff;
 
-  --line: #dfe4ea;
-  --line-strong: #c6cdd6;
-  --gridline: #e7eaef;
-  --baseline: #c6cdd6;
+  --line: #dfe2f0;
+  --line-strong: #c7cbe0;
+  --gridline: #e8eaf4;
+  --baseline: #c7cbe0;
 
-  --accent: #2a78d6;
-  --accent-strong: #1f5fae;
+  /* Deepened Aqua Splash: the raw value is 1.8:1 on white. */
+  --accent: #16727a;
+  --accent-strong: #0f5a61;
   --accent-ink: #ffffff;
-  --accent-wash: rgb(42 120 214 / 0.1);
-  --accent-ring: rgb(42 120 214 / 0.35);
+  --accent-wash: rgb(22 114 122 / 0.09);
+  --accent-ring: rgb(22 114 122 / 0.35);
 
-  --series-1: #2a78d6;
-  --series-2: #eb6834;
-  --series-3: #1baf7a;
-  --series-4: #eda100;
+  /* Light-mode primary is Beacon Blue itself (13.8:1 with white). */
+  --primary: #252a50;
+  --primary-hover: #333a6b;
+  --primary-ink: #ffffff;
+  --primary-glow: rgb(37 42 80 / 0.32);
+
+  --warm: #b8383f;
+  --warm-wash: rgb(249 114 114 / 0.12);
+
+  --brand-from: #16727a;
+  --brand-to: #b8383f;
+
+  --status-good: #0a7a37;
+  --status-warning: #8f5d00;
+  --status-serious: #b54d24;
+  --status-critical: #c62d3d;
+  --status-neutral: #5f6488;
+
+  --series-1: #2b969d;
+  --series-2: #e2575a;
+  --series-3: #6d5bd0;
+  --series-4: #b07800;
+
+  --seq-100: #d7f0f1;
+  --seq-250: #40959a;
+  --seq-400: #357a90;
+  --seq-550: #2f5f86;
+  --seq-700: #252a50;
 
   --glass-bg: rgb(255 255 255 / 0.72);
-  --glass-bg-strong: rgb(255 255 255 / 0.88);
-  --glass-border: rgb(11 14 18 / 0.1);
+  --glass-bg-strong: rgb(255 255 255 / 0.9);
+  --glass-border: rgb(37 42 80 / 0.1);
   --glass-highlight: rgb(255 255 255 / 0.85);
-  --glass-shadow: 0 20px 48px -28px rgb(15 25 40 / 0.28);
+  --glass-shadow: 0 20px 48px -28px rgb(37 42 80 / 0.32);
+
+  --ambient-a: rgb(133 206 209 / 0.28);
+  --ambient-b: rgb(249 114 114 / 0.14);
+  --ambient-c: rgb(255 255 255 / 0.9);
+  --grain-opacity: 0.035;
 }
 
 @media (prefers-color-scheme: light) {
   :root:where(:not([data-theme='dark']):not([data-theme='light'])) {
     color-scheme: light;
 
-    --plane: #f2f4f7;
-    --plane-2: #f7f9fb;
+    --plane: #f4f5fb;
+    --plane-2: #fafbfe;
     --surface: #ffffff;
     --surface-raised: #ffffff;
-    --surface-sunken: #f4f6f9;
+    --surface-sunken: #eef0f8;
+    --surface-brand: #252a50;
 
-    --ink: #0b0e12;
-    --ink-secondary: #4a5461;
-    --ink-muted: #6c7682;
+    --ink: #151833;
+    --ink-secondary: #41466b;
+    --ink-muted: #5f6488;
     --ink-inverse: #ffffff;
 
-    --line: #dfe4ea;
-    --line-strong: #c6cdd6;
-    --gridline: #e7eaef;
-    --baseline: #c6cdd6;
+    --line: #dfe2f0;
+    --line-strong: #c7cbe0;
+    --gridline: #e8eaf4;
+    --baseline: #c7cbe0;
 
-    --accent: #2a78d6;
-    --accent-strong: #1f5fae;
+    --accent: #16727a;
+    --accent-strong: #0f5a61;
     --accent-ink: #ffffff;
-    --accent-wash: rgb(42 120 214 / 0.1);
-    --accent-ring: rgb(42 120 214 / 0.35);
+    --accent-wash: rgb(22 114 122 / 0.09);
+    --accent-ring: rgb(22 114 122 / 0.35);
 
-    --series-1: #2a78d6;
-    --series-2: #eb6834;
-    --series-3: #1baf7a;
-    --series-4: #eda100;
+    --primary: #252a50;
+    --primary-hover: #333a6b;
+    --primary-ink: #ffffff;
+    --primary-glow: rgb(37 42 80 / 0.32);
+
+    --warm: #b8383f;
+    --warm-wash: rgb(249 114 114 / 0.12);
+
+    --brand-from: #16727a;
+    --brand-to: #b8383f;
+
+    --status-good: #0a7a37;
+    --status-warning: #8f5d00;
+    --status-serious: #b54d24;
+    --status-critical: #c62d3d;
+    --status-neutral: #5f6488;
+
+    --series-1: #2b969d;
+    --series-2: #e2575a;
+    --series-3: #6d5bd0;
+    --series-4: #b07800;
+
+    --seq-100: #d7f0f1;
+    --seq-250: #40959a;
+    --seq-400: #357a90;
+    --seq-550: #2f5f86;
+    --seq-700: #252a50;
 
     --glass-bg: rgb(255 255 255 / 0.72);
-    --glass-bg-strong: rgb(255 255 255 / 0.88);
-    --glass-border: rgb(11 14 18 / 0.1);
+    --glass-bg-strong: rgb(255 255 255 / 0.9);
+    --glass-border: rgb(37 42 80 / 0.1);
     --glass-highlight: rgb(255 255 255 / 0.85);
-    --glass-shadow: 0 20px 48px -28px rgb(15 25 40 / 0.28);
+    --glass-shadow: 0 20px 48px -28px rgb(37 42 80 / 0.32);
+
+    --ambient-a: rgb(133 206 209 / 0.28);
+    --ambient-b: rgb(249 114 114 / 0.14);
+    --ambient-c: rgb(255 255 255 / 0.9);
+    --grain-opacity: 0.035;
   }
 }
 
@@ -164,6 +266,15 @@
   --color-accent-strong: var(--accent-strong);
   --color-accent-ink: var(--accent-ink);
   --color-accent-wash: var(--accent-wash);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-ink: var(--primary-ink);
+  --color-warm: var(--warm);
+  --color-warm-wash: var(--warm-wash);
+  --color-surface-brand: var(--surface-brand);
+  --color-beacon: var(--pantone-beacon);
+  --color-aqua: var(--pantone-aqua);
+  --color-peach: var(--pantone-peach);
   --color-good: var(--status-good);
   --color-warning: var(--status-warning);
   --color-serious: var(--status-serious);
@@ -174,12 +285,21 @@
   --color-series-4: var(--series-4);
   --radius-card: var(--radius);
   --radius-panel: var(--radius-lg);
-  --font-sans: var(--font-inter), system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+  --font-sans: var(--font-geist-sans), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, 'SF Mono', Menlo, monospace;
+  --ease-out: var(--ease-out);
+  --ease-spring: var(--ease-spring);
 }
 
-* {
-  border-color: var(--line);
+/* Default border colour. It MUST live in a layer: Tailwind v4 emits every
+   utility inside @layer utilities, and unlayered CSS beats layered CSS
+   regardless of specificity. Unlayered, this rule silently overrode every
+   border-colour utility in the app — including the red borders on error
+   states, which rendered grey. */
+@layer base {
+  * {
+    border-color: var(--line);
+  }
 }
 
 html {
@@ -195,40 +315,46 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
-/* A single calm ambient field behind the whole app. Fixed, non-interactive,
-   and cheap: two radial gradients, no animation, so it never competes with
-   the data on screen. */
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+/* A calm ambient field behind the whole app, in the Pantone palette: an Aqua
+   Splash bloom top-left, a Georgia Peach bloom top-right, settling into the
+   Beacon Blue plane. Fixed, non-interactive and static — so it never
+   competes with the data — and a single rule driven by per-theme tokens. */
 body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(64rem 38rem at 8% -12%, var(--ambient-a), transparent 62%),
+    radial-gradient(52rem 32rem at 96% 4%, var(--ambient-b), transparent 60%),
+    radial-gradient(80rem 50rem at 50% 120%, var(--ambient-c), transparent 70%),
+    linear-gradient(180deg, var(--plane-2) 0%, var(--plane) 55%);
+}
+
+/* Film grain: breaks the digital flatness of large gradient fields. A static
+   SVG turbulence tile, so it costs one paint, not a frame budget. */
+body::after {
   content: '';
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background:
-    radial-gradient(70rem 40rem at 12% -10%, rgb(79 147 240 / 0.16), transparent 60%),
-    radial-gradient(60rem 36rem at 92% 8%, rgb(25 158 112 / 0.1), transparent 62%),
-    linear-gradient(180deg, var(--plane-2) 0%, var(--plane) 55%);
-}
-
-/* The light-mode ambient field. Declared under both scopes so the explicit
-   theme toggle wins over the OS setting in either direction. */
-:root[data-theme='light'] body::before {
-  background:
-    radial-gradient(70rem 40rem at 12% -10%, rgb(42 120 214 / 0.09), transparent 60%),
-    radial-gradient(60rem 36rem at 92% 8%, rgb(27 175 122 / 0.07), transparent 62%),
-    linear-gradient(180deg, #ffffff 0%, var(--plane) 60%);
-}
-
-@media (prefers-color-scheme: light) {
-  :root:where(:not([data-theme='dark'])) body::before {
-    background:
-      radial-gradient(70rem 40rem at 12% -10%, rgb(42 120 214 / 0.09), transparent 60%),
-      radial-gradient(60rem 36rem at 92% 8%, rgb(27 175 122 / 0.07), transparent 62%),
-      linear-gradient(180deg, #ffffff 0%, var(--plane) 60%);
-  }
+  opacity: var(--grain-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 /* -------------------------------------------------------------------------- *
@@ -242,45 +368,47 @@ body::before {
  * body text, where transparency hurts legibility.
  * -------------------------------------------------------------------------- */
 
-.glass {
-  position: relative;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-}
+@layer components {
+  .glass {
+    position: relative;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--glass-shadow);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+  }
 
-.glass-strong {
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(28px) saturate(170%);
-  -webkit-backdrop-filter: blur(28px) saturate(170%);
-}
-
-/* The specular edge that reads as a lit glass lip. */
-.glass::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background: linear-gradient(180deg, var(--glass-highlight), transparent 28%);
-  opacity: 0.6;
-  mix-blend-mode: overlay;
-}
-
-/* An opaque card for dense, text-heavy content. */
-.panel {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-}
-
-@supports not (backdrop-filter: blur(4px)) {
-  .glass,
   .glass-strong {
-    background: var(--surface-raised);
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(28px) saturate(170%);
+    -webkit-backdrop-filter: blur(28px) saturate(170%);
+  }
+
+  /* The specular edge that reads as a lit glass lip. */
+  .glass::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(180deg, var(--glass-highlight), transparent 28%);
+    opacity: 0.6;
+    mix-blend-mode: overlay;
+  }
+
+  /* An opaque card for dense, text-heavy content. */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+
+  @supports not (backdrop-filter: blur(4px)) {
+    .glass,
+    .glass-strong {
+      background: var(--surface-raised);
+    }
   }
 }
 
@@ -294,6 +422,17 @@ body::before {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* The in-app "Reduce motion" setting. Every animation above is opt-in under
+   `prefers-reduced-motion: no-preference`; this applies the same outcome when
+   the viewer asks for it in Settings, even if the OS has not. */
+:root[data-motion='reduce'] *,
+:root[data-motion='reduce'] *::before,
+:root[data-motion='reduce'] *::after {
+  animation: none !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }
 
 /* Focus: always visible, never removed. */
@@ -337,10 +476,12 @@ body::before {
     opacity: 0.7;
   }
 }
-.skeleton {
-  background: var(--line);
-  border-radius: 6px;
-  animation: veriflow-pulse 1.6s ease-in-out infinite;
+@layer components {
+  .skeleton {
+    background: var(--line);
+    border-radius: 6px;
+    animation: veriflow-pulse 1.6s ease-in-out infinite;
+  }
 }
 
 /* A live indicator for in-flight runs. */
@@ -471,4 +612,348 @@ body::before {
   border: 0;
   border-top: 1px solid var(--line);
   margin: 24px 0;
+}
+
+/* ========================================================================== *
+ * Motion system
+ *
+ * Rules:
+ *  - transform and opacity only, so every animation stays on the compositor;
+ *  - content is fully visible by default, and every animation is opt-in under
+ *    `prefers-reduced-motion: no-preference`. (The global reduced-motion rule
+ *    above only shortens durations, which would not stop a scroll-driven
+ *    reveal, so gating is the only safe pattern here);
+ *  - entry motion runs once; nothing loops except genuine "live" signals.
+ * ========================================================================== */
+
+@keyframes vf-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes vf-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes vf-slide-in {
+  from {
+    opacity: 0;
+    transform: translate3d(-10px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes vf-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -6px, 0);
+  }
+}
+
+@keyframes vf-sheen {
+  from {
+    transform: translateX(-120%) skewX(-18deg);
+  }
+  to {
+    transform: translateX(220%) skewX(-18deg);
+  }
+}
+
+@keyframes vf-gradient-pan {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes vf-progress-stripes {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 24px 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Route entry: each page rises in once when it mounts. */
+  .page-enter {
+    animation: vf-rise var(--dur-slow) var(--ease-out) both;
+  }
+
+  /* Staggered entry for groups: set --i on each child (0, 1, 2 …). */
+  .stagger > * {
+    animation: vf-rise var(--dur-slow) var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 55ms + 40ms);
+  }
+
+  .nav-enter {
+    animation: vf-slide-in 480ms var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 35ms + 80ms);
+  }
+
+  .float-slow {
+    animation: vf-float 7s ease-in-out infinite;
+  }
+
+  /* Scroll-driven reveal where the browser supports view timelines; elsewhere
+     the element is simply visible (no JS, no invisible-content failure mode). */
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: vf-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 38%;
+    }
+  }
+
+  /* Active progress bars carry a slow stripe so "in flight" reads at a glance. */
+  .progress-live {
+    background-image: linear-gradient(
+      -45deg,
+      rgb(255 255 255 / 0.18) 25%,
+      transparent 25%,
+      transparent 50%,
+      rgb(255 255 255 / 0.18) 50%,
+      rgb(255 255 255 / 0.18) 75%,
+      transparent 75%
+    );
+    background-size: 24px 24px;
+    animation: vf-progress-stripes 900ms linear infinite;
+  }
+}
+
+/* -------------------------------------------------------------------------- *
+ * Interaction
+ * -------------------------------------------------------------------------- */
+
+/* Tactile press for anything clickable. */
+.press {
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    color var(--dur) var(--ease-out);
+}
+.press:active:not(:disabled) {
+  transform: scale(0.975);
+}
+
+@media (prefers-reduced-motion: no-preference) and (hover: hover) {
+  .lift {
+    transition:
+      transform var(--dur) var(--ease-spring),
+      box-shadow var(--dur) var(--ease-out),
+      background-color var(--dur) var(--ease-out);
+  }
+  .lift:hover {
+    transform: translate3d(0, -2px, 0);
+  }
+}
+
+/* Primary buttons: a single light sweep on hover, clipped to the button. */
+.sheen {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.sheen::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.38), transparent);
+  transform: translateX(-120%) skewX(-18deg);
+}
+@media (prefers-reduced-motion: no-preference) and (hover: hover) {
+  .sheen:hover::after {
+    animation: vf-sheen 720ms var(--ease-out);
+  }
+}
+
+/* Spotlight: a soft Aqua Splash light that follows the cursor across a card,
+   with a brighter rim on the border. The pointer position is written to
+   --mx/--my by useSpotlight(); without JS it simply never appears. */
+.spotlight {
+  position: relative;
+  isolation: isolate;
+}
+.spotlight::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease-out);
+  background:
+    radial-gradient(
+      22rem circle at var(--mx, 50%) var(--my, 50%),
+      var(--accent-wash),
+      transparent 55%
+    );
+}
+.spotlight:hover::before {
+  opacity: 1;
+}
+
+/* -------------------------------------------------------------------------- *
+ * Brand type and surfaces
+ * -------------------------------------------------------------------------- */
+
+/* Aqua Splash -> Georgia Peach display gradient. Both ends clear 5:1 on the
+   dark plane; light mode swaps in the deepened steps via the same tokens. */
+.text-brand {
+  background: linear-gradient(100deg, var(--brand-from) 0%, var(--brand-to) 100%);
+  background-size: 100% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .text-brand-animated {
+    background-size: 180% 100%;
+    animation: vf-gradient-pan 9s ease-in-out infinite;
+  }
+}
+
+/* The Beacon Blue hero band. Always dark, in both themes, so the Pantone
+   accents render at their true values on top of it. */
+.hero-band {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: calc(var(--radius-lg) + 4px);
+  background:
+    radial-gradient(42rem 22rem at 100% 0%, rgb(249 114 114 / 0.2), transparent 62%),
+    radial-gradient(40rem 26rem at 0% 100%, rgb(133 206 209 / 0.18), transparent 64%),
+    linear-gradient(135deg, #2b3160 0%, var(--pantone-beacon) 46%, #171a38 100%);
+  border: 1px solid rgb(198 205 255 / 0.14);
+  box-shadow:
+    0 30px 80px -40px rgb(10 12 32 / 0.9),
+    inset 0 1px 0 rgb(255 255 255 / 0.08);
+  color: #f2f3fa;
+}
+
+
+/* Active-nav indicator: a thin Aqua Splash rail. */
+.nav-rail {
+  position: absolute;
+  left: -10px;
+  top: 50%;
+  width: 3px;
+  height: 18px;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, var(--pantone-aqua), var(--pantone-peach));
+  transform: translateY(-50%);
+  box-shadow: 0 0 12px rgb(133 206 209 / 0.7);
+}
+
+/* Tabular figures anywhere numbers are compared or animated. */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'ss01' 1;
+}
+
+/* The hero band is Beacon Blue in BOTH themes, so its display gradient must
+   always use the true Pantone values. `.text-brand` would swap to the
+   deepened light-mode steps, which fall to 2.2:1 on the band. */
+.text-brand-hero {
+  background: linear-gradient(100deg, var(--pantone-aqua) 0%, #b7b9e8 52%, var(--pantone-peach) 100%);
+  background-size: 100% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Automatic stagger indices, so a page can opt a group in with one class. */
+.stagger > :nth-child(1) { --i: 0; }
+.stagger > :nth-child(2) { --i: 1; }
+.stagger > :nth-child(3) { --i: 2; }
+.stagger > :nth-child(4) { --i: 3; }
+.stagger > :nth-child(5) { --i: 4; }
+.stagger > :nth-child(6) { --i: 5; }
+.stagger > :nth-child(7) { --i: 6; }
+.stagger > :nth-child(8) { --i: 7; }
+.stagger > :nth-child(n + 9) { --i: 8; }
+
+/* Text shimmer (components/core/text-shimmer.tsx): an in-flight status
+   signal. Static, readable ink-muted text unless motion is allowed. */
+@keyframes vf-shimmer {
+  from {
+    background-position: 100% center;
+  }
+  to {
+    background-position: 0% center;
+  }
+}
+.text-shimmer {
+  position: relative;
+  display: inline-block;
+  /* Overridable per use (e.g. a badge keeps its tone). Both must pass 4.5:1
+     on the surface they sit on, since the resting text is the base colour. */
+  color: var(--shimmer-base, var(--ink-muted));
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion='reduce']) .text-shimmer {
+    color: transparent;
+    background-image:
+      linear-gradient(
+        90deg,
+        transparent calc(50% - var(--spread)),
+        var(--shimmer-band, var(--ink)),
+        transparent calc(50% + var(--spread))
+      ),
+      linear-gradient(var(--shimmer-base, var(--ink-muted)), var(--shimmer-base, var(--ink-muted)));
+    background-size: 250% 100%, auto;
+    background-repeat: no-repeat, padding-box;
+    -webkit-background-clip: text;
+    background-clip: text;
+    animation: vf-shimmer var(--shimmer-duration, 2s) linear infinite;
+  }
+}
+
+/* Brand marks on the Stack page: per-brand, per-theme colours precomputed for
+   contrast by components/stack/brandColors.ts and passed in as variables. */
+.brand-ink {
+  color: var(--mark-d);
+}
+.brand-tile {
+  background-color: var(--tile-d);
+}
+:root[data-theme='light'] .brand-ink {
+  color: var(--mark-l);
+}
+:root[data-theme='light'] .brand-tile {
+  background-color: var(--tile-l);
+}
+@media (prefers-color-scheme: light) {
+  :root:where(:not([data-theme='dark'])) .brand-ink {
+    color: var(--mark-l);
+  }
+  :root:where(:not([data-theme='dark'])) .brand-tile {
+    background-color: var(--tile-l);
+  }
 }

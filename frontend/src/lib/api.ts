@@ -32,6 +32,7 @@ import type {
   RunListItem,
   RunStatus,
   RunTaskItem,
+  StackInfo,
   SystemInfo,
   UsagePoint,
 } from './types'
@@ -136,6 +137,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 export const api = {
   health: (signal?: AbortSignal) => request<HealthStatus>('/health', { signal }),
   system: (signal?: AbortSignal) => request<SystemInfo>('/api/v1/system', { signal }),
+  stack: (signal?: AbortSignal) => request<StackInfo>('/api/v1/system/stack', { signal }),
   dashboard: (signal?: AbortSignal) => request<Dashboard>('/api/v1/dashboard', { signal }),
 
   // --- customers ---------------------------------------------------------

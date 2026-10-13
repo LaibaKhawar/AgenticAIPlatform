@@ -68,7 +68,7 @@ export default function CustomersPage() {
   )
 
   return (
-    <div className="space-y-5">
+    <div className="stagger space-y-5">
       <div>
         <div className="mb-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-ink-muted">
           Portfolio

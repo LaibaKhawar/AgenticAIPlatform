@@ -1,12 +1,18 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import { Geist, Geist_Mono } from 'next/font/google'
 import { AppShell } from '@/components/shell/AppShell'
 import { config } from '@/lib/config'
 import './globals.css'
 
-const inter = Inter({
+const geistSans = Geist({
   subsets: ['latin'],
-  variable: '--font-inter',
+  variable: '--font-geist-sans',
+  display: 'swap',
+})
+
+const geistMono = Geist_Mono({
+  subsets: ['latin'],
+  variable: '--font-geist-mono',
   display: 'swap',
 })
 
@@ -25,27 +31,28 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   themeColor: [
-    { media: '(prefers-color-scheme: dark)', color: '#090c10' },
-    { media: '(prefers-color-scheme: light)', color: '#f2f4f7' },
+    { media: '(prefers-color-scheme: dark)', color: '#0b0d1c' },
+    { media: '(prefers-color-scheme: light)', color: '#f4f5fb' },
   ],
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`} suppressHydrationWarning>
       <head>
-        {/* Apply the stored theme before first paint so there is no flash of
-            the wrong palette. Kept inline and tiny on purpose. */}
+        {/* Apply the stored theme and motion preference before first paint, so
+            there is no flash of the wrong palette or of unwanted animation.
+            Kept inline and tiny on purpose. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('veriflow-theme');if(t&&t!=='system'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();`,
+            __html: `(function(){try{var r=document.documentElement,t=localStorage.getItem('veriflow-theme'),m=localStorage.getItem('veriflow-motion');if(t&&t!=='system'){r.setAttribute('data-theme',t);}if(m==='reduce'){r.setAttribute('data-motion','reduce');}}catch(e){}})();`,
           }}
         />
       </head>
       <body>
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-accent focus:px-4 focus:py-2 focus:text-[var(--accent-ink)]"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-ink"
         >
           Skip to content
         </a>

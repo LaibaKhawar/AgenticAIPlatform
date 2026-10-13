@@ -2,7 +2,7 @@
 
 /** Data-fetching hooks: one request shape, one polling implementation. */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { ApiError } from './api'
 
 export interface AsyncState<T> {
@@ -119,26 +119,51 @@ export function useApi<T>(
 }
 
 /** A local value persisted per browser, tolerant of blocked storage. */
-export function useLocalValue(key: string, fallback: string): [string, (value: string) => void] {
-  const [value, setValue] = useState(fallback)
+/*
+ * A tiny synced store over localStorage.
+ *
+ * Every component reading the same key re-renders when any of them writes it
+ * (and when another tab does, via the `storage` event). The previous version
+ * held a private copy per component, so changing the theme in Settings left
+ * the sidebar showing the old one until a reload. If storage is unavailable
+ * (private mode, blocked site data) values live in memory for the session.
+ */
+const localListeners = new Set<() => void>()
+const memoryValues = new Map<string, string>()
 
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(key)
-      if (stored !== null) setValue(stored)
-    } catch {
-      // Private mode or blocked storage: the fallback is correct.
-    }
-  }, [key])
+function subscribeLocal(onChange: () => void): () => void {
+  localListeners.add(onChange)
+  window.addEventListener('storage', onChange)
+  return () => {
+    localListeners.delete(onChange)
+    window.removeEventListener('storage', onChange)
+  }
+}
+
+function readLocal(key: string, fallback: string): string {
+  try {
+    return window.localStorage.getItem(key) ?? memoryValues.get(key) ?? fallback
+  } catch {
+    return memoryValues.get(key) ?? fallback
+  }
+}
+
+export function useLocalValue(key: string, fallback: string): [string, (value: string) => void] {
+  const value = useSyncExternalStore(
+    subscribeLocal,
+    () => readLocal(key, fallback),
+    () => fallback,
+  )
 
   const update = useCallback(
     (next: string) => {
-      setValue(next)
+      memoryValues.set(key, next)
       try {
         window.localStorage.setItem(key, next)
       } catch {
-        // Non-fatal: the value still applies for this session.
+        // Non-fatal: the in-memory value still applies for this session.
       }
+      localListeners.forEach((listener) => listener())
     },
     [key],
   )

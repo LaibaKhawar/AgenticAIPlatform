@@ -1,6 +1,8 @@
 'use client'
 
 import Link from 'next/link'
+import { TextShimmer } from '@/components/core/text-shimmer'
+import { FlowCanvas } from '@/components/flow/FlowCanvas'
 import { VerificationSplit } from '@/components/charts/charts'
 import {
   ArrowRightIcon,
@@ -36,7 +38,7 @@ import {
   formatTokens,
   truncate,
 } from '@/lib/format'
-import type { RiskLevel } from '@/lib/types'
+import type { Dashboard, RiskLevel } from '@/lib/types'
 
 export default function DashboardPage() {
   const { data, error, initialLoading, refresh } = useApi((signal) => api.dashboard(signal), [], {
@@ -46,7 +48,7 @@ export default function DashboardPage() {
   if (error) {
     return (
       <div className="space-y-4">
-        <PageIntro />
+        <DashboardHero />
         <ErrorState error={error} onRetry={refresh} />
       </div>
     )
@@ -55,7 +57,7 @@ export default function DashboardPage() {
   if (initialLoading || !data) {
     return (
       <div className="space-y-6">
-        <PageIntro />
+        <DashboardHero />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 8 }).map((_, index) => (
             <Skeleton key={index} className="h-[86px] rounded-card" />
@@ -71,8 +73,8 @@ export default function DashboardPage() {
   const datasetEmpty = data.total_customers === 0
 
   return (
-    <div className="space-y-7">
-      <PageIntro />
+    <div className="stagger space-y-7">
+      <DashboardHero data={data} />
 
       {datasetEmpty ? (
         <GlassPanel className="px-5 py-4">
@@ -94,10 +96,12 @@ export default function DashboardPage() {
         <h2 id="operations" className="sr-only">
           Operational metrics
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatTile
             label="Investigations completed"
             value={formatNumber(data.investigations_completed)}
+            countTo={data.investigations_completed}
+            format={(n) => formatNumber(Math.round(n))}
             hint={`across ${formatNumber(data.runs_total)} run${data.runs_total === 1 ? '' : 's'}`}
             icon={<FlowIcon className="h-3.5 w-3.5" />}
             href="/runs"
@@ -106,7 +110,17 @@ export default function DashboardPage() {
           <StatTile
             label="Currently running"
             value={formatNumber(data.runs_running)}
-            hint={data.runs_running > 0 ? 'workers are executing tasks' : 'no work in flight'}
+            countTo={data.runs_running}
+            format={(n) => formatNumber(Math.round(n))}
+            hint={
+              data.runs_running > 0 ? (
+                <TextShimmer as="span" duration={1.8}>
+                  workers are executing tasks
+                </TextShimmer>
+              ) : (
+                'no work in flight'
+              )
+            }
             tone={data.runs_running > 0 ? 'accent' : 'neutral'}
             href="/runs"
             emphasis
@@ -114,6 +128,8 @@ export default function DashboardPage() {
           <StatTile
             label="Failed investigations"
             value={formatNumber(data.runs_failed)}
+            countTo={data.runs_failed}
+            format={(n) => formatNumber(Math.round(n))}
             hint={data.runs_failed > 0 ? 'open a run to see the failing stage' : 'none'}
             tone={data.runs_failed > 0 ? 'critical' : 'neutral'}
             href="/runs?status=FAILED"
@@ -122,6 +138,8 @@ export default function DashboardPage() {
           <StatTile
             label="Pending approvals"
             value={formatNumber(data.pending_approvals)}
+            countTo={data.pending_approvals}
+            format={(n) => formatNumber(Math.round(n))}
             hint={data.pending_approvals > 0 ? 'sensitive actions awaiting review' : 'nothing to review'}
             tone={data.pending_approvals > 0 ? 'warning' : 'neutral'}
             icon={<ShieldIcon className="h-3.5 w-3.5" />}
@@ -132,10 +150,12 @@ export default function DashboardPage() {
       </section>
 
       {/* Quality + portfolio */}
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
           label="High-risk customers"
           value={formatNumber(data.high_risk_customers)}
+          countTo={data.high_risk_customers}
+          format={(n) => formatNumber(Math.round(n))}
           hint="investigated at HIGH or CRITICAL"
           tone={data.high_risk_customers > 0 ? 'serious' : 'neutral'}
         />
@@ -147,18 +167,22 @@ export default function DashboardPage() {
         <StatTile
           label="Verified claims"
           value={data.verified_claim_pct === null ? '—' : formatPercent(data.verified_claim_pct, 1)}
+          countTo={data.verified_claim_pct}
+          format={(n) => formatPercent(n, 1)}
           hint={claimTotal === 0 ? 'no claims produced yet' : 'fully supported by evidence'}
           tone={data.verified_claim_pct === null ? 'neutral' : 'good'}
         />
         <StatTile
           label="Unsupported claims"
           value={data.unsupported_claim_pct === null ? '—' : formatPercent(data.unsupported_claim_pct, 1)}
+          countTo={data.unsupported_claim_pct}
+          format={(n) => formatPercent(n, 1)}
           hint={claimTotal === 0 ? 'no claims produced yet' : 'rejected before reaching a report'}
           tone={data.unsupported_claim_pct === null ? 'neutral' : 'critical'}
         />
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-3">
         {/* Recent runs */}
         <Panel className="lg:col-span-2">
           <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3">
@@ -199,6 +223,7 @@ export default function DashboardPage() {
                         value={run.progress}
                         tone={run.status === 'FAILED' ? 'critical' : run.status === 'COMPLETED' ? 'good' : 'accent'}
                         label={`Run progress ${run.progress}%`}
+                        live={isRunActive(run.status)}
                         className="w-14"
                       />
                       <span className="font-mono text-[11px] tabular-nums text-ink-muted">{run.progress}%</span>
@@ -333,22 +358,76 @@ function KeyRow({ label, value }: { label: string; value: React.ReactNode }) {
   )
 }
 
-function PageIntro() {
+function DashboardHero({ data }: { data?: Dashboard }) {
+  const pending = data?.pending_approvals ?? 0
   return (
-    <div className="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <div className="mb-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-ink-muted">
-          Operations
+    <section aria-labelledby="dashboard-title" data-flow-origin className="hero-band lg:min-h-[520px]">
+      {/* The Veriflow Flow: inputs enter small and distant on the right, are
+          routed through investigation and verification, and leave large and
+          near at the bottom-left. It is also where page transitions begin. */}
+      <FlowCanvas className="absolute inset-0 opacity-60 lg:opacity-100" />
+      {/* Legibility scrim behind the headline only; the near end of the flow
+          (bottom-left) stays at full strength. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(56rem_24rem_at_0%_0%,rgb(30_34_66/0.82),rgb(30_34_66/0.5)_45%,transparent_72%)]"
+      />
+
+      <div className="relative z-1 grid gap-8 px-6 py-9 sm:px-9 sm:py-11 lg:grid-cols-[minmax(0,1fr)_auto] lg:py-12">
+        <div className="max-w-2xl">
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/[0.07] px-3 py-1 ring-1 ring-inset ring-white/15 backdrop-blur-sm">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="live-dot h-1.5 w-1.5 rounded-full bg-aqua text-aqua" />
+          </span>
+          <span className="font-mono text-[10.5px] font-medium tracking-[0.12em] text-[#c9cdea] uppercase">
+            Operations · live
+          </span>
         </div>
-        <h1 className="text-[26px] font-semibold tracking-[-0.025em] text-ink">Dashboard</h1>
-        <p className="mt-1.5 max-w-2xl text-[13px] text-ink-secondary">
-          {config.productName} turns a business objective into a verified, evidence-backed report. Every
-          number below is read from the platform database — nothing here is illustrative.
+
+        <h1
+          id="dashboard-title"
+          className="text-[34px] leading-[1.05] font-semibold tracking-[-0.035em] text-[#f2f3fa] sm:text-[44px]"
+        >
+          Every conclusion,
+          <br />
+          <span className="text-brand-hero text-brand-animated">traced to its evidence.</span>
+        </h1>
+
+        <p className="mt-4 max-w-[58ch] text-[14.5px] leading-relaxed text-[#c9cdea]">
+          {config.productName} turns a business objective into a plan, investigates each account,
+          and checks every claim against its sources before anything reaches a report. Every number
+          on this page is read live from the platform database.
         </p>
+
+        <div className="mt-7 flex flex-wrap items-center gap-3">
+          <LinkButton href="/runs/new" variant="brand" size="lg" icon={<SparkIcon className="h-4 w-4" />}>
+            New investigation
+          </LinkButton>
+          <LinkButton href="/approvals" variant="onDark" size="lg" icon={<ShieldIcon className="h-4 w-4" />}>
+            {pending > 0 ? `Review ${pending} approval${pending === 1 ? '' : 's'}` : 'Approvals'}
+          </LinkButton>
+        </div>
+
+        </div>
+
+        {/* Live figures sit top-right, clear of the flow's path. */}
+        {data ? (
+          <dl className="flex flex-wrap gap-x-7 gap-y-3 border-t border-white/10 pt-5 lg:flex-col lg:items-end lg:gap-y-4 lg:border-0 lg:pt-1 lg:text-right">
+            <HeroFact label="Customers" value={formatNumber(data.total_customers)} />
+            <HeroFact label="Renewing in 90 days" value={formatNumber(data.renewing_within_90_days)} />
+            <HeroFact label="Evidence records" value={formatNumber(data.evidence_records)} />
+          </dl>
+        ) : null}
       </div>
-      <LinkButton href="/runs/new" variant="primary" size="lg" icon={<SparkIcon className="h-4 w-4" />}>
-        New investigation
-      </LinkButton>
+    </section>
+  )
+}
+
+function HeroFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="font-mono text-[10px] tracking-[0.12em] text-[#a9aed6] uppercase">{label}</dt>
+      <dd className="num mt-1 text-[20px] font-semibold tracking-[-0.02em] text-[#f2f3fa]">{value}</dd>
     </div>
   )
 }

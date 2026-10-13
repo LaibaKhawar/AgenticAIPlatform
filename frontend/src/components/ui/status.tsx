@@ -8,7 +8,8 @@
  * legible for colour-vision deficiency and in forced-colours mode.
  */
 
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
+import { TextShimmer } from '@/components/core/text-shimmer'
 import {
   AlertIcon,
   Badge,
@@ -27,13 +28,15 @@ interface StatusMeta {
   label: string
   tone: Tone
   Icon: (props: { className?: string }) => ReactNode
+  /** Work is executing right now: the label shimmers (a status signal, motion-gated). */
+  live?: boolean
 }
 
 const RUN_STATUS: Record<RunStatus, StatusMeta> = {
   PENDING: { label: 'Pending', tone: 'muted', Icon: ClockIcon },
   QUEUED: { label: 'Queued', tone: 'accent', Icon: ClockIcon },
-  RUNNING: { label: 'Running', tone: 'accent', Icon: SpinIcon },
-  RETRYING: { label: 'Retrying', tone: 'warning', Icon: SpinIcon },
+  RUNNING: { label: 'Running', tone: 'accent', Icon: SpinIcon, live: true },
+  RETRYING: { label: 'Retrying', tone: 'warning', Icon: SpinIcon, live: true },
   WAITING_FOR_APPROVAL: { label: 'Awaiting approval', tone: 'warning', Icon: PauseIcon },
   COMPLETED: { label: 'Completed', tone: 'good', Icon: CheckIcon },
   FAILED: { label: 'Failed', tone: 'critical', Icon: AlertIcon },
@@ -72,11 +75,33 @@ const RISK_LEVEL: Record<RiskLevel, StatusMeta> = {
   CRITICAL: { label: 'Critical', tone: 'critical', Icon: AlertIcon },
 }
 
+/*
+ * The shimmer's resting colour must be the badge's own text colour. It cannot
+ * be `currentColor`: the animated text is transparent (the gradient shows
+ * through), so `currentColor` would resolve to transparent too.
+ */
+const SHIMMER_BASE: Partial<Record<Tone, string>> = {
+  accent: 'var(--accent)',
+  warning: 'color-mix(in srgb, var(--status-warning) 82%, var(--ink))',
+}
+
 function StatusBadge({ meta, title }: { meta: StatusMeta; title?: string }) {
   const { Icon } = meta
+  const base = SHIMMER_BASE[meta.tone]
   return (
     <Badge tone={meta.tone} icon={<Icon className="h-3 w-3" />} title={title}>
-      {meta.label}
+      {meta.live && base ? (
+        <TextShimmer
+          as="span"
+          duration={1.8}
+          className="[--shimmer-band:var(--ink)]"
+          style={{ '--shimmer-base': base } as CSSProperties}
+        >
+          {meta.label}
+        </TextShimmer>
+      ) : (
+        meta.label
+      )}
     </Badge>
   )
 }
