@@ -89,6 +89,20 @@ class SystemInfoResponse(ApiModel):
     approval_policy: list[dict[str, Any]]
 
 
+class StackService(ApiModel):
+    name: str
+    version: str | None
+    reachable: bool
+
+
+class StackResponse(ApiModel):
+    """Versions this deployment is running, read live (see app.core.stack)."""
+
+    python: str
+    libraries: dict[str, str | None]
+    services: list[StackService]
+
+
 # --------------------------------------------------------------------------- #
 # Customers
 # --------------------------------------------------------------------------- #

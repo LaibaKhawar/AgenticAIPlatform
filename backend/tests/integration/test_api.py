@@ -86,6 +86,26 @@ def test_system_endpoint_describes_real_capabilities(api_client: Any) -> None:
     assert any(entry["requires_approval"] for entry in body["approval_policy"])
 
 
+def test_stack_endpoint_reports_the_versions_actually_running(api_client: Any, db: Any) -> None:
+    from importlib import metadata
+
+    from sqlalchemy import text
+
+    body = api_client.get("/api/v1/system/stack").json()
+    services = {service["name"]: service for service in body["services"]}
+
+    # Server versions must be what the server itself says, not a constant.
+    server_version = str(db.execute(text("SHOW server_version")).scalar()).split(" ", 1)[0]
+    extension_version = db.execute(text("SELECT extversion FROM pg_extension WHERE extname = 'vector'")).scalar()
+    assert services["postgresql"] == {"name": "postgresql", "version": server_version, "reachable": True}
+    assert services["pgvector"]["version"] == extension_version
+    assert services["redis"]["name"] == "redis"
+
+    assert body["libraries"]["fastapi"] == metadata.version("fastapi")
+    assert body["libraries"]["pydantic"] == metadata.version("pydantic")
+    assert body["python"].count(".") == 2
+
+
 def test_root_endpoint_points_at_the_docs(api_client: Any) -> None:
     body = api_client.get("/").json()
     assert body["docs"] == "/docs"

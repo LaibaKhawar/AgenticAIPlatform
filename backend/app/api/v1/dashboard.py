@@ -17,6 +17,7 @@ from app.analytics.risk import formula_documentation
 from app.api.deps import DbSession, Pagination
 from app.core.clock import today as clock_today
 from app.core.config import get_settings
+from app.core.stack import collect_stack
 from app.models.enums import ApprovalStatus, ClaimStatus, RiskLevel, RunStatus
 from app.models.workflow import Claim, Evidence, Investigation, LlmCall, Run
 from app.policy.approvals import sensitive_action_catalogue
@@ -32,6 +33,7 @@ from app.schemas.api import (
     Page,
     ReportListItem,
     ReportResponse,
+    StackResponse,
     SystemInfoResponse,
 )
 from app.tools.registry import REGISTRY
@@ -236,3 +238,13 @@ def system_info() -> SystemInfoResponse:
         risk_model=formula_documentation(),
         approval_policy=sensitive_action_catalogue(),
     )
+
+
+@router.get("/system/stack", response_model=StackResponse, summary="Live runtime and dependency versions")
+def system_stack(session: DbSession) -> StackResponse:
+    """What this deployment is built from, read from the running services.
+
+    Kept separate from ``/system`` so that endpoint stays free of database and
+    Redis round-trips.
+    """
+    return StackResponse.model_validate(collect_stack(session))
